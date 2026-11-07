@@ -499,7 +499,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='7.11.26 18:38';
+var BUILD_TS='7.11.26 18:48';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -4806,10 +4806,13 @@ function toggleItem(id,pid){
   appState[pid].items[id]=newVal;
   if(!appState[pid].pct)appState[pid].pct={};
   appState[pid].pct[id]=newVal?100:0;
-  var el=document.querySelector('#iw-'+id+' .it');
+  // Find within active IP to avoid hitting duplicate IDs in hidden year panels
+  var activeIP=document.querySelector('#panel-'+pid+' .ip.active');
+  function findInPanel(sel){return activeIP?activeIP.querySelector(sel):document.querySelector(sel);}
+  var el=findInPanel('#iw-'+id+' .it');
   if(el){el.classList.toggle('done',newVal);el.querySelector('.cb').textContent=newVal?'✓':'';}
-  var inp=document.getElementById('pct-'+id);if(inp)inp.value=newVal?100:0;
-  var bar=document.getElementById('pctbar-'+id);
+  var inp=findInPanel('#pct-'+id);if(inp)inp.value=newVal?100:0;
+  var bar=findInPanel('#pctbar-'+id);
   if(bar){bar.style.width=(newVal?100:0)+'%';bar.style.background=newVal?'var(--nv-green)':'var(--ac)';}
   updateProgress(pid);saveState();
 }
@@ -4845,9 +4848,13 @@ function toggleAmirItem(id){
   updateAmirProgress();saveState();
 }
 function toggleNote(id,pid){
-  var wrap=document.getElementById('iw-'+id);if(!wrap)return;
+  // Search within active IP panel to avoid duplicate IDs across year panels
+  var activeIP=document.querySelector('#panel-'+pid+' .ip.active');
+  var wrap=activeIP?activeIP.querySelector('#iw-'+id):document.getElementById('iw-'+id);
+  if(!wrap)wrap=document.getElementById('iw-'+id);
+  if(!wrap)return;
   wrap.classList.toggle('open');
-  var btn=document.getElementById('nb-'+id);
+  var btn=wrap.querySelector('[id="nb-'+id+'"]')||document.getElementById('nb-'+id);
   if(wrap.classList.contains('open')){wrap.querySelector('textarea').focus();if(btn)btn.classList.add('hn');}
   else if(!appState[pid].notes[id]&&btn)btn.classList.remove('hn');
 }
@@ -4932,11 +4939,12 @@ function savePct(id,pid,val){
   appState[pid].pct[id]=v;
   // Auto-check if 100%, uncheck if dropped below
   appState[pid].items[id]=(v===100);
-  var el=document.querySelector('#iw-'+id+' .it');
+  var activeIP2=document.querySelector('#panel-'+pid+' .ip.active');
+  function fp(sel){return activeIP2?activeIP2.querySelector(sel):document.querySelector(sel);}
+  var el=fp('#iw-'+id+' .it');
   if(el){el.classList.toggle('done',v===100);el.querySelector('.cb').textContent=v===100?'✓':'';}
-  // Ensure input shows clamped value
-  var inp2=document.getElementById('pct-'+id);if(inp2)inp2.value=v;
-  var bar=document.getElementById('pctbar-'+id);
+  var inp2=fp('#pct-'+id);if(inp2)inp2.value=v;
+  var bar=fp('#pctbar-'+id);
   if(bar){var color=v>=100?'var(--nv-green)':v>=50?'var(--or)':'var(--ac)';bar.style.width=v+'%';bar.style.background=color;}
   updateProgress(pid);
   saveState();
