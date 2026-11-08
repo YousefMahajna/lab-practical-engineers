@@ -505,7 +505,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26g';
+var BUILD_TS='8.11.26h';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3404,8 +3404,9 @@ function buildPersonPanel(p){
   h+='<div class="add-item-bar">';
   h+='<textarea id="new-item-text-'+p.id+'" placeholder="New goal or deliverable…"></textarea>';
   h+='<select id="new-item-tag-'+p.id+'">';
-  h+='<option value="tr">Training</option><option value="ld">Leadership</option>';
-  h+='<option value="dc">Documentation</option><option value="mc">Machine</option>';
+  h+='<option value="tr">Training</option><option value="pr">Project</option><option value="ma">Machine Acceptance</option>';
+  h+='<option value="bu">BU Support</option><option value="ow">Ownership</option><option value="ld">Leadership</option>';
+  h+='<option value="dc">Documentation</option><option value="mc">Machine</option><option value="ot">Other</option>';
   h+='</select>';
   h+='<button class="add-item-btn" onclick="addItem(\''+p.id+'\')">+ Add</button>';
   h+='</div>';
@@ -3518,10 +3519,20 @@ function buildPersonPanel(p){
     } else {
       yrItems.forEach(function(it){h+=buildItem(it,p.id,ps);});
     }
-    h+='<div class="add-item-bar">';
-    h+='<textarea id="new-item-text-'+p.id+'-'+yr+'" placeholder="New goal or deliverable for '+yr+'…"></textarea>';
-    h+='<select id="new-item-tag-'+p.id+'-'+yr+'"><option value="tr">Training</option><option value="ld">Leadership</option><option value="dc">Documentation</option><option value="mc">Machine</option></select>';
-    h+='<button class="add-item-btn" onclick="addItemYear(\''+p.id+'\',\''+yr+'\')">+ Add</button>';
+    h+='<div style="display:flex;gap:8px;align-items:center;margin-top:10px;padding:10px 12px;background:var(--s0);border:1px dashed var(--ace);border-radius:6px">';
+    h+='<textarea id="new-item-text-'+p.id+'-'+yr+'" placeholder="New goal or deliverable for '+yr+'…" rows="1" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--ace);color:var(--tx);font-size:13px;padding:4px 6px;outline:none;resize:none;font-family:inherit;line-height:1.5"></textarea>';
+    h+='<select id="new-item-tag-'+p.id+'-'+yr+'" style="background:var(--s1);border:1px solid var(--ace);border-radius:4px;color:var(--tx);font-size:12px;padding:5px 8px;cursor:pointer">'
+      +'<option value="tr">Training</option>'
+      +'<option value="pr">Project</option>'
+      +'<option value="ma">Machine Acceptance</option>'
+      +'<option value="bu">BU Support</option>'
+      +'<option value="ow">Ownership</option>'
+      +'<option value="ld">Leadership</option>'
+      +'<option value="dc">Documentation</option>'
+      +'<option value="mc">Machine</option>'
+      +'<option value="ot">Other</option>'
+      +'</select>';
+    h+='<button onclick="addItemYear(\''+p.id+'\',\''+yr+'\')" style="background:var(--ac);border:none;border-radius:4px;padding:6px 16px;color:#000;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">+ Add</button>';
     h+='</div>';
     h+='</div>';
     // Team Dynamics — year-specific
