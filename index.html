@@ -505,7 +505,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26d';
+var BUILD_TS='8.11.26e';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -4579,54 +4579,87 @@ function renderMachTraining(){
   } else {
     items.forEach(function(tr){
       var attendStatus=tr.attendees||{};
-      h+='<div style="background:var(--s1);border:1px solid var(--ace);border-radius:8px;padding:16px;margin-bottom:14px">';
-      // Header row
-      h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+      var planLines=(tr.plan||'').split('\n').filter(function(l){return l.trim();});
+      var planChecks=tr.planChecks||{};
+
+      h+='<div style="background:var(--s1);border:1px solid var(--ace);border-radius:10px;padding:20px;margin-bottom:18px">';
+
+      // ── Header ──
+      h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">';
       h+='<div>'
-        +'<div style="font-size:15px;font-weight:700;color:var(--tx)">🎓 '+esc(tr.machine||'')+'</div>'
-        +'<div style="font-size:11px;color:var(--txs);margin-top:2px">'+esc(tr.site||'')+' &nbsp;·&nbsp; '+esc(tr.dateFrom||'')+' → '+esc(tr.dateTo||'')+'</div>'
+        +'<div style="font-size:18px;font-weight:800;color:var(--tx);margin-bottom:6px">🎓 '+esc(tr.machine||'')+'</div>'
+        +'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">'
+        +'<span style="font-size:13px;font-weight:600;color:var(--ac);background:var(--acb);border:1px solid var(--ace);border-radius:4px;padding:3px 10px">📍 '+esc(tr.site||'—')+'</span>'
+        +'<span style="font-size:13px;color:var(--txs)">📅 <strong>'+esc(tr.dateFrom||'—')+'</strong> → <strong>'+esc(tr.dateTo||'—')+'</strong></span>'
+        +'</div>'
         +'</div>';
       if(isManager){
-        h+='<div style="display:flex;gap:6px">'
-          +'<button onclick="editMachTraining(\''+tr.id+'\')" style="background:none;border:1px solid var(--ace);border-radius:4px;padding:4px 10px;color:var(--ac);cursor:pointer;font-size:12px">✏ Edit</button>'
-          +'<button onclick="deleteMachTraining(\''+tr.id+'\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px">✕</button>'
+        h+='<div style="display:flex;gap:8px;flex-shrink:0">'
+          +'<button onclick="editMachTraining(\''+tr.id+'\')" style="background:none;border:1px solid var(--ace);border-radius:4px;padding:5px 12px;color:var(--ac);cursor:pointer;font-size:12px;font-weight:700">✏ Edit</button>'
+          +'<button onclick="deleteMachTraining(\''+tr.id+'\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:4px 6px">✕</button>'
           +'</div>';
       }
       h+='</div>';
-      // Plan
-      if(tr.plan){
-        h+='<div style="font-size:12px;color:var(--txs);margin-bottom:10px;white-space:pre-wrap">📋 '+esc(tr.plan)+'</div>';
+
+      // ── Plan checklist ──
+      if(planLines.length>0){
+        h+='<div style="margin-bottom:16px">';
+        h+='<div style="font-size:11px;font-weight:700;color:var(--txs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Training Agenda</div>';
+        h+='<div style="background:var(--s0);border:1px solid var(--bd);border-radius:6px;padding:10px 14px">';
+        planLines.forEach(function(line,i){
+          var key=tr.id+'_plan_'+i;
+          var checked=planChecks[key]||false;
+          h+='<div style="display:flex;align-items:flex-start;gap:10px;padding:5px 0;border-bottom:'+(i<planLines.length-1?'1px solid #1f1f1f':'none')+'">';
+          h+='<div onclick="toggleMachPlanCheck(\''+tr.id+'\',\''+i+'\')" style="width:18px;height:18px;min-width:18px;border-radius:3px;border:2px solid '+(checked?'#76b900':'#444')+';background:'+(checked?'#76b900':'transparent')+';cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:1px">'
+            +(checked?'<span style="color:#000;font-size:12px;font-weight:900">✓</span>':'')+'</div>';
+          h+='<span style="font-size:13px;color:'+(checked?'var(--txm)':'var(--tx)')+';'+(checked?'text-decoration:line-through;':'')+'line-height:1.5">'+esc(line)+'</span>';
+          h+='</div>';
+        });
+        h+='</div></div>';
       }
-      // Attendees table
+
+      // ── Attendees ──
       var atts=tr.attendees_list||[];
       if(atts.length>0){
-        h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
-        h+='<tr style="border-bottom:1px solid #333"><th style="text-align:left;padding:5px 8px;color:var(--txs)">Attendee</th><th style="padding:5px 8px;color:var(--txs)">Status</th><th style="text-align:left;padding:5px 8px;color:var(--txs)">Feedback</th></tr>';
-        atts.forEach(function(name){
+        h+='<div>';
+        h+='<div style="font-size:11px;font-weight:700;color:var(--txs);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Attendees</div>';
+        h+='<table style="width:100%;border-collapse:collapse">';
+        h+='<thead><tr style="background:var(--s0)">'
+          +'<th style="text-align:left;padding:8px 12px;font-size:12px;color:var(--txs);font-weight:600;border-radius:4px 0 0 0">Attendee</th>'
+          +'<th style="text-align:center;padding:8px 12px;font-size:12px;color:var(--txs);font-weight:600;width:160px">Status</th>'
+          +'<th style="text-align:left;padding:8px 12px;font-size:12px;color:var(--txs);font-weight:600;border-radius:0 4px 0 0">Feedback / Comment</th>'
+          +'</tr></thead><tbody>';
+        atts.forEach(function(name,ni){
           var st=attendStatus[name]||{};
           var statusVal=st.status||'Planned';
-          var statusColor=statusVal==='Completed'?'#76b900':statusVal==='In progress'?'#f59e0b':'#888';
-          h+='<tr style="border-bottom:1px solid #1a1a1a">';
-          h+='<td style="padding:6px 8px;font-weight:600;color:var(--tx)">'+esc(name)+'</td>';
-          h+='<td style="padding:6px 8px;text-align:center">';
+          var statusColor=statusVal==='Completed'?'#76b900':statusVal==='In progress'?'#f59e0b':statusVal==='Cancelled'?'#ef4444':'#888';
+          var rowBg=ni%2===0?'transparent':'rgba(255,255,255,.02)';
+          h+='<tr style="border-bottom:1px solid var(--bd);background:'+rowBg+'">';
+          h+='<td style="padding:10px 12px;font-size:14px;font-weight:700;color:var(--tx)">'
+            +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+statusColor+';margin-right:8px"></span>'
+            +esc(name)+'</td>';
+          h+='<td style="padding:10px 12px;text-align:center">';
           if(isManager){
-            h+='<select onchange="saveMachAttStatus(\''+tr.id+'\',\''+name+'\',this.value)" style="background:#111;border:1px solid #333;border-radius:3px;color:'+statusColor+';font-size:11px;padding:2px 4px">'
-              +['Planned','In progress','Completed','Cancelled'].map(function(s){return '<option value="'+s+'"'+(s===statusVal?' selected':'')+'>'+s+'</option>';}).join('')
-              +'</select>';
+            h+='<select onchange="saveMachAttStatus(\''+tr.id+'\',\''+name+'\',this.value)" '
+              +'style="background:#111;border:1px solid #333;border-radius:4px;color:'+statusColor+';font-size:12px;padding:4px 8px;font-weight:600;cursor:pointer">'
+              +['Planned','In progress','Completed','Cancelled'].map(function(s){
+                return '<option value="'+s+'"'+(s===statusVal?' selected':'')+'>'+s+'</option>';
+              }).join('')+'</select>';
           } else {
-            h+='<span style="color:'+statusColor+'">'+statusVal+'</span>';
+            h+='<span style="color:'+statusColor+';font-weight:600;font-size:12px">'+statusVal+'</span>';
           }
           h+='</td>';
-          h+='<td style="padding:6px 8px">';
-          if(isManager||currentUser.name===name){
-            h+='<input type="text" value="'+esc(st.feedback||'')+'" onblur="saveMachAttFeedback(\''+tr.id+'\',\''+name+'\',this.value)" placeholder="Feedback…" style="width:100%;background:transparent;border:none;border-bottom:1px solid #333;color:var(--tx);font-size:11px;padding:2px 4px;outline:none">';
+          h+='<td style="padding:10px 12px">';
+          if(isManager||(currentUser&&currentUser.name===name)){
+            h+='<input type="text" value="'+esc(st.feedback||'')+'" onblur="saveMachAttFeedback(\''+tr.id+'\',\''+name+'\',this.value)" '
+              +'placeholder="Add feedback or comment…" '
+              +'style="width:100%;background:var(--s0);border:1px solid var(--bd);border-radius:4px;color:var(--tx);font-size:13px;padding:6px 10px;outline:none;box-sizing:border-box">';
           } else {
-            h+=esc(st.feedback||'—');
+            h+='<span style="font-size:13px;color:var(--txs)">'+esc(st.feedback||'—')+'</span>';
           }
-          h+='</td>';
-          h+='</tr>';
+          h+='</td></tr>';
         });
-        h+='</table>';
+        h+='</tbody></table></div>';
       }
       h+='</div>';
     });
@@ -4700,6 +4733,17 @@ function deleteMachTraining(id){
   if(!confirm('Delete this training plan?'))return;
   appState.machTraining=(Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||[])).filter(function(x){return x.id!==id;});
   saveState();renderMachTraining();
+}
+
+function toggleMachPlanCheck(tid,lineIdx){
+  var items=Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||[]);
+  var tr=items.find(function(x){return x.id===tid;});
+  if(!tr)return;
+  if(!tr.planChecks)tr.planChecks={};
+  var key=tid+'_plan_'+lineIdx;
+  tr.planChecks[key]=!tr.planChecks[key];
+  saveState();
+  renderMachTraining();
 }
 
 function saveMachAttStatus(tid,name,val){
