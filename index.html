@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26m';
+var BUILD_TS='8.11.26n';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -594,8 +594,9 @@ var TEAM=[
 ];
 
 var PEOPLE=[
-  {id:'haytam',name:'Haytam',color:'#3b6ef5',site:'Basi site — DC machine advanced training',
+  {id:'haytam',name:'Haytam',color:'#3b6ef5',site:'',
    items:[
+    {id:'h0',label:'Basi site — DC machine advanced training',tags:['tr']},
     {id:'h1',label:'SAT MRSI acceptance + lead MRSI acceptance process',tags:['mc','ld']},
     {id:'h2',label:'Expert-level proficiency on ADST system',tags:['tr']},
     {id:'h3',label:'Expert-level proficiency on ASM wire bond machine',tags:['tr']},
@@ -632,8 +633,9 @@ var PEOPLE=[
     {id:'m9',label:'Centralized repository for cross-section results established',tags:['dc']},
     {id:'m10',label:'Inventory tracking in place (adhesives, mechanical parts, materials)',tags:['dc']},
   ]},
-  {id:'samer',name:'Samer',color:'#e03e3e',site:'Basi site — DC machine advanced training',
+  {id:'samer',name:'Samer',color:'#e03e3e',site:'',
    items:[
+    {id:'s0',label:'Basi site — DC machine advanced training',tags:['tr']},
     {id:'s1',label:'MRSI training completed',tags:['mc']},
     {id:'s2',label:'LD lens assembly training at Ficontec completed',tags:['tr']},
     {id:'s3',label:'Higher level reached on RX ADST machine',tags:['tr']},
@@ -2965,7 +2967,7 @@ function setAmirYear(year){
     tmp.innerHTML=buildAmirPanel();
     var built=tmp.firstElementChild;
     if(built){
-      built.classList.add('active');
+      setTimeout(function(){var ft=document.querySelector('#panel-amir .itab.active')||document.querySelector('#panel-amir .itab');if(ft)ft.click();initAmirTextareas();},30);
       oldPanel.parentNode.replaceChild(built,oldPanel);
       initAmirTextareas();
     }
@@ -5544,7 +5546,14 @@ function switchTab(pid){
       var builtAmir=tmp2.firstElementChild;
       if(builtAmir){
         oldAmir.parentNode.replaceChild(builtAmir,oldAmir);
-        setTimeout(function(){var ft=document.querySelector('#panel-amir .itab');if(ft)ft.click();initAmirTextareas();},30);
+        setTimeout(function(){
+          var amirYear=(appState.amir&&appState.amir.activeYear)||'2026';
+          // Click the tab matching active year, or first tab
+          var activeSel='#panel-amir .itab.active';
+          var ft=document.querySelector(activeSel)||document.querySelector('#panel-amir .itab');
+          if(ft)ft.click();
+          initAmirTextareas();
+        },30);
       }
     }
   }
