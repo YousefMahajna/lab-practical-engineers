@@ -505,7 +505,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26e';
+var BUILD_TS='8.11.26f';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -1265,6 +1265,7 @@ function buildSessionsPanel(){
     h+='<select id="sess-time" style="background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px"><option value="">Duration...</option><option>0.5 hr</option><option>1 hr</option><option>1.5 hr</option><option>2 hr</option><option>2.5 hr</option><option>3 hr</option><option>4 hr</option><option>Half day</option><option>Full day</option></select>';
     h+='</div>';
     h+='<textarea id="sess-agenda" placeholder="Agenda / Description" rows="2" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px;resize:vertical;margin-bottom:10px"></textarea>';
+    h+='<input id="sess-link" placeholder="Recording / Meeting link (optional) — https://…" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px;margin-bottom:10px">';
     h+='<div style="margin-bottom:10px"><label style="color:var(--txs);font-size:12px;display:block;margin-bottom:6px">Attendees:</label>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
     ALL_PEOPLE.forEach(function(name){
@@ -1284,6 +1285,7 @@ function buildSessionsPanel(){
     h+='<thead><tr style="background:var(--s1);color:var(--ac)">';
     h+='<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--ace)">Title / Subject</th>';
     h+='<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--ace)">Presenter</th>';
+    h+='<th style="padding:10px 8px;text-align:center;border-bottom:2px solid var(--ace)">🔗 Link</th>';
     h+='<th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--ace)">Date</th>';
     h+='<th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--ace)">Duration</th>';
     h+='<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--ace)">Agenda</th>';
@@ -1299,6 +1301,13 @@ function buildSessionsPanel(){
       h+='<tr style="background:'+bg+';border-bottom:1px solid var(--ace)">';
       h+='<td style="padding:10px 12px;font-weight:600;color:'+(done?'var(--ac)':'var(--tx)')+'">'+esc(s.title||'')+'</td>';
       h+='<td style="padding:10px 12px;color:var(--ac)">'+esc(s.presenter||'')+'</td>';
+      h+='<td style="padding:10px 8px;text-align:center">';
+      if(s.link){
+        h+='<a href="'+esc(s.link)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;background:var(--acb);border:1px solid var(--ace);border-radius:4px;padding:4px 10px;color:var(--ac);text-decoration:none;font-size:12px;font-weight:700">▶ Open</a>';
+      } else {
+        h+='<span style="color:#333;font-size:11px">—</span>';
+      }
+      h+='</td>';
       h+='<td style="padding:10px 8px;white-space:nowrap;color:var(--txs)">'+esc(s.date||'')+'</td>';
       h+='<td style="padding:10px 8px;white-space:nowrap;color:var(--txs)">'+esc(s.time||'')+'</td>';
       h+='<td style="padding:10px 12px;color:var(--txs);max-width:220px">'+esc(s.agenda||'')+'</td>';
@@ -1337,6 +1346,7 @@ function addSession(){
     date:document.getElementById('sess-date').value,
     time:document.getElementById('sess-time').value,
     agenda:document.getElementById('sess-agenda').value.trim(),
+    link:document.getElementById('sess-link')?document.getElementById('sess-link').value.trim():'',
     attendees:atts,
     completed:false,
     createdAt:new Date().toISOString()
@@ -1347,7 +1357,7 @@ function addSession(){
   saveState();
   buildSessionsPanel();
   // Clear form
-  ['sess-title','sess-presenter','sess-agenda'].forEach(function(id){document.getElementById(id).value='';});
+  ['sess-title','sess-presenter','sess-agenda','sess-link'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('sess-date').value='';
   document.getElementById('sess-time').value='';
   document.querySelectorAll('.sess-att').forEach(function(cb){cb.checked=false;});
@@ -1383,6 +1393,7 @@ function editSession(id){
     +'</div>'
     +'<select id="se-time" style="width:100%;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;margin-bottom:8px"><option value="">Duration...</option>'+durOpts+'</select>'
     +'<textarea id="se-agenda" placeholder="Agenda" rows="2" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;resize:vertical;margin-bottom:8px">'+esc(s.agenda||'')+'</textarea>'
+    +'<input id="se-link" value="'+esc(s.link||'')+'" placeholder="Recording / Meeting link (https://…)" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;margin-bottom:8px">'
     +'<div style="margin-bottom:14px"><div style="font-size:11px;color:#888;margin-bottom:6px">Attendees:</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+attChecks+'</div></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end">'
     +'<button onclick="document.getElementById(\'sess-edit-overlay\').remove()" style="background:none;border:1px solid #555;border-radius:4px;padding:8px 16px;color:#aaa;cursor:pointer">Cancel</button>'
@@ -1405,6 +1416,8 @@ function saveSessionEdit(id){
   s.date=document.getElementById('se-date').value;
   s.time=document.getElementById('se-time').value;
   s.agenda=document.getElementById('se-agenda').value.trim();
+  var linkEl=document.getElementById('se-link');
+  if(linkEl)s.link=linkEl.value.trim();
   s.attendees=atts;
   saveState();
   document.getElementById('sess-edit-overlay').remove();
