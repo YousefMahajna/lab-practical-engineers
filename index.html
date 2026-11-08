@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26l';
+var BUILD_TS='8.11.26m';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2918,6 +2918,18 @@ function getGoalsPct(pid){
   return calcOverallPct(pid);
 }
 
+function saveAmirGoalEdit(yr,id){
+  if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+  var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
+  if(!g)return;
+  g.label=document.getElementById('item-edit-label').value.trim()||g.label;
+  var tagEl=document.getElementById('item-edit-tag');
+  if(tagEl)g.tags=[tagEl.value];
+  saveState();
+  document.getElementById('item-edit-overlay').remove();
+  setAmirYear(yr);
+}
+
 function addAmirGoal(yr){
   var ta=document.getElementById('amir-new-goal-'+yr);
   if(!ta||!ta.value.trim())return;
@@ -3997,17 +4009,23 @@ function buildAmirPanel(){
     // Show existing amir goals for this year
     var amirGoals=(appState.amir&&appState.amir['goals_'+yr])||[];
     if(!Array.isArray(amirGoals))amirGoals=Object.values(amirGoals);
+    // Build a fake ps object so buildItem works for amir future goals
+    var amirPs={
+      items:{},notes:{},pct:{},
+    };
+    amirGoals.forEach(function(g){
+      amirPs.items[g.id]=g.done||false;
+      amirPs.notes[g.id]=g.note||'';
+      amirPs.pct[g.id]=g.pct||0;
+    });
     if(amirGoals.length===0){
       h+='<p style="color:var(--txm);font-style:italic;padding:12px 0 4px">No goals for '+yr+' yet — add one below.</p>';
     } else {
-      h+='<div class="sec">';
+      h+='<div class="sec"><div class="st">Goals and Deliverables</div>';
       amirGoals.forEach(function(g){
-        var done=g.done||false;
-        h+='<div class="iw" style="position:relative"><div class="it'+(done?' done':'')+'">'
-          +'<div class="cb" onclick="toggleAmirGoal(\''+yr+'\',\''+g.id+'\')">'+( done?'✓':'')+'</div>'
-          +'<div class="im"><div class="il">'+esc(g.label)+'</div></div>'
-          +'<button onclick="deleteAmirGoal(\''+yr+'\',\''+g.id+'\')" style="background:none;border:none;color:var(--txm);cursor:pointer;font-size:13px;margin-left:4px">✕</button>'
-          +'</div></div>';
+        // Map to item format buildItem expects
+        var fakeIt={id:g.id,label:g.label,tags:g.tags||['tr']};
+        h+=buildItem(fakeIt,'amir_'+yr,amirPs);
       });
       h+='</div>';
     }
@@ -4988,6 +5006,7 @@ function addItem(pid){
   },50);
 }
 function deleteItem(id,pid){
+  if(pid&&pid.startsWith('amir_')){deleteAmirGoal(pid.split('_')[1],id);return;}
   if(!confirm('Delete this item?'))return;
   var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
   if(!p)return;
@@ -5002,6 +5021,31 @@ function deleteItem(id,pid){
   setTimeout(function(){var tab=document.querySelector('#panel-'+pid+' .itab');if(tab)switchInner(pid,'goals',tab);},50);
 }
 function startEditItem(id,pid){
+  if(pid&&pid.startsWith('amir_')){
+    var yr=pid.split('_')[1];
+    if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+    var ag=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
+    if(!ag)return;
+    // Reuse saveEditItemModal but with amir_yr flag
+    var curTag=(ag.tags&&ag.tags[0])||'tr';
+    var TAG_OPTS=[['tr','Training'],['pr','Project'],['ma','Machine Acceptance'],['bu','BU Support'],['ow','Ownership'],['ld','Leadership'],['dc','Documentation'],['mc','Machine'],['ot','Other']];
+    var tagOpts=TAG_OPTS.map(function(t){return '<option value="'+t[0]+'"'+(t[0]===curTag?' selected':'')+'>'+t[1]+'</option>';}).join('');
+    var overlay=document.createElement('div');
+    overlay.id='item-edit-overlay';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML='<div style="background:#1a1a1a;border:1px solid var(--ac);border-radius:8px;padding:22px;width:500px;max-width:95vw">'
+      +'<h3 style="color:var(--ac);margin:0 0 14px">✏ Edit Goal</h3>'
+      +'<textarea id="item-edit-label" rows="2" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;resize:vertical;margin-bottom:10px">'+esc(ag.label)+'</textarea>'
+      +'<div style="margin-bottom:16px"><label style="font-size:11px;color:var(--txs);display:block;margin-bottom:4px">Category</label>'
+      +'<select id="item-edit-tag" style="width:100%;background:#111;border:1px solid #333;border-radius:4px;padding:6px 10px;color:#f0f0f0;font-size:13px;color-scheme:dark">'+tagOpts+'</select></div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+      +'<button onclick="document.getElementById(\'item-edit-overlay\').remove()" style="background:none;border:1px solid #555;border-radius:4px;padding:8px 16px;color:#aaa;cursor:pointer">Cancel</button>'
+      +'<button onclick="saveAmirGoalEdit(\''+yr+'\',\''+id+'\')" style="background:var(--ac);border:none;border-radius:4px;padding:8px 20px;color:#000;font-weight:700;cursor:pointer">Save</button>'
+      +'</div></div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+    return;
+  }
   var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
   var it=p.items.find(function(x){return x.id===id;});
   if(!it)return;
@@ -5165,6 +5209,14 @@ function updateAllNav(){
   }catch(e){}
 }
 function toggleItem(id,pid){
+  // Handle Amir future year goals (pid = 'amir_2027' etc)
+  if(pid&&pid.startsWith('amir_')){
+    var yr=pid.split('_')[1];
+    if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+    var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
+    if(g)g.done=!g.done;
+    saveState();setAmirYear(yr);return;
+  }
   var newVal=!appState[pid].items[id];
   appState[pid].items[id]=newVal;
   if(!appState[pid].pct)appState[pid].pct={};
@@ -5230,6 +5282,12 @@ function toggleAmirItem(id){
   updateAmirProgress();saveState();
 }
 function toggleNote(id,pid){
+  if(pid&&pid.startsWith('amir_')){
+    var wrap=document.getElementById('iw-'+id);if(!wrap)return;
+    wrap.classList.toggle('open');
+    var ta=wrap.querySelector('textarea');if(wrap.classList.contains('open')&&ta)ta.focus();
+    return;
+  }
   // Search within active IP panel to avoid duplicate IDs across year panels
   var activeIP=document.querySelector('#panel-'+pid+' .ip.active');
   var wrap=activeIP?activeIP.querySelector('#iw-'+id):document.getElementById('iw-'+id);
@@ -5296,6 +5354,13 @@ function editAmirTask(id){
   saveStateNow();_rebuildAmirPanel();
 }
 function saveNote(id,pid,val){
+  if(pid&&pid.startsWith('amir_')){
+    var yr=pid.split('_')[1];
+    if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+    var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
+    if(g)g.note=val;
+    saveState();return;
+  }
   appState[pid].notes[id]=val;
   var trimmed=val.trim();
   var b=document.getElementById('nb-'+id);if(b)b.classList.toggle('hn',!!trimmed);
@@ -5316,6 +5381,13 @@ function saveNote(id,pid,val){
   saveState();
 }
 function savePct(id,pid,val){
+  if(pid&&pid.startsWith('amir_')){
+    var yr=pid.split('_')[1];
+    if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+    var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
+    if(g){g.pct=parseInt(val)||0;g.done=g.pct>=100;}
+    saveState();return;
+  }
   var v=Math.max(0,Math.min(100,parseInt(val)||0));
   if(!appState[pid].pct)appState[pid].pct={};
   appState[pid].pct[id]=v;
@@ -5456,7 +5528,11 @@ function switchTab(pid){
         var built=tmp.firstElementChild;
         if(built){
           oldPanel.parentNode.replaceChild(built,oldPanel);
-          setTimeout(function(){initItemDrag(pid);},50);
+          setTimeout(function(){
+            var ft=document.querySelector('#panel-'+pid+' .itab.active, #panel-'+pid+' .itab');
+            if(ft)ft.click();
+            initItemDrag(pid);
+          },30);
         }
       }
     }
