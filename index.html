@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26j';
+var BUILD_TS='8.11.26l';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3214,17 +3214,16 @@ function buildItem(it,pid,ps){
   var pct=ps.pct&&ps.pct[it.id]!==undefined?ps.pct[it.id]:0;
   var barColor=pct>=100?'var(--gn)':pct>=50?'var(--or)':'var(--ac)';
   var activeYr=(appState[pid]&&appState[pid].activeYear)||'2026';
-  var YOPTS=['2025','2026','2027','2028'].filter(function(y){return y!==activeYr;});
-  var h='<div class="iw" id="iw-'+it.id+'" draggable="true" data-id="'+it.id+'" data-pid="'+pid+'">';
-  h+='<div class="it'+(done?' done':'')+'">';
-  h+='<div class="cb" onclick="toggleItem(\''+it.id+'\',\''+pid+'\')">'+(done?'✓':'')+'</div>';
-  h+='<div class="im" onclick="toggleNote(\''+it.id+'\',\''+pid+'\')">';
-  h+='<div style="display:flex;align-items:center;gap:6px">';
   var TAG_LABELS={tr:'Training',pr:'Project',ma:'Machine Acceptance',bu:'BU Support',ow:'Ownership',ld:'Leadership',dc:'Documentation',mc:'Machine',ot:'Other'};
   var TAG_COLORS={tr:'#3b82f6',pr:'#8b5cf6',ma:'#f59e0b',bu:'#ec4899',ow:'#14b8a6',ld:'#76b900',dc:'#6b7280',mc:'#f97316',ot:'#64748b'};
   var tagVal=(it.tags&&it.tags[0])||'';
   var tagLabel=TAG_LABELS[tagVal]||tagVal;
   var tagColor=TAG_COLORS[tagVal]||'#555';
+  var h='<div class="iw" id="iw-'+it.id+'" draggable="true" data-id="'+it.id+'" data-pid="'+pid+'">';
+  h+='<div class="it'+(done?' done':'')+'">';
+  h+='<div class="cb" onclick="toggleItem(\''+it.id+'\',\''+pid+'\')">'+(done?'✓':'')+'</div>';
+  h+='<div class="im" onclick="toggleNote(\''+it.id+'\',\''+pid+'\')">';
+  h+='<div style="display:flex;align-items:center;gap:6px">';
   h+='<div class="il" id="il-'+it.id+'">'+esc(it.label)+'</div>';
   if(hasNote)h+='<span class="note-dot" title="Has comment" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;display:inline-block;box-shadow:0 0 5px #f59e0b99"></span>';
   h+='</div>';
@@ -3236,9 +3235,8 @@ function buildItem(it,pid,ps){
   h+='</div>';
   if(tagLabel){h+='<span style="font-size:10px;font-weight:700;color:'+tagColor+';background:'+tagColor+'22;border:1px solid '+tagColor+'55;border-radius:3px;padding:2px 7px;white-space:nowrap;margin-right:4px">'+tagLabel+'</span>';}
   h+='<button class="edit-btn" title="Edit label" onclick="startEditItem(\''+it.id+'\',\''+pid+'\')">✏</button>';
-  h+='<button class="del-btn" title="Delete item" onclick="deleteItem(\''+it.id+'\',\''+pid+'\')">&#10005;</button>';
+  h+='<button class="del-btn" title="Delete item" onclick="deleteItem(\''+it.id+'\',\''+pid+'\')">✕</button>';
   h+='<button class="nb'+(note?' hn':'')+'" id="nb-'+it.id+'" onclick="toggleNote(\''+it.id+'\',\''+pid+'\')">✎</button>';
-
   h+='</div>';
   h+='<div class="np2"><textarea placeholder="Comment…" oninput="saveNote(\''+it.id+'\',\''+pid+'\',this.value)">'+esc(note)+'</textarea></div>';
   h+='</div>';
@@ -4023,6 +4021,16 @@ function buildAmirPanel(){
       +'</select>';
     h+='<button onclick="addAmirGoal(\''+yr+'\')" style="background:var(--ac);border:none;border-radius:4px;padding:6px 16px;color:#000;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">+ Add</button>';
     h+='</div>';
+    // Team Dynamics
+    var aScore=appState.amir['teamScore_'+yr]||0;
+    h+='<div class="tc"><div class="st" style="margin-bottom:11px">Team Dynamics</div>';
+    h+='<div class="sr"><span class="sl" id="ascore-lbl-'+yr+'">'+(aScore?aScore+'/5 — '+SL[aScore]:'No score')+'</span>';
+    h+='<div id="astars-'+yr+'" style="display:flex;gap:4px">';
+    for(var sn=1;sn<=5;sn++)h+='<div class="star'+(sn<=aScore?' on':'')+'" onclick="setScoreYear(\'amir\','+sn+',\''+yr+'\')">'+sn+'</div>';
+    h+='</div></div>';
+    h+='<div contenteditable="true" style="width:100%;background:var(--s0);border:1px solid var(--bd);border-radius:5px;padding:6px 9px;font-size:13px;color:var(--tx);line-height:1.6;white-space:pre-wrap;word-break:break-word;outline:none;font-family:inherit;box-sizing:border-box;min-height:52px" data-pid="amir" data-yr="'+yr+'" oninput="saveTeamCommentYear(this.dataset.pid,this.dataset.yr,this.innerText)" onblur="saveTeamCommentYear(this.dataset.pid,this.dataset.yr,this.innerText)">'+escBr(appState.amir['teamComment_'+yr]||'')+'</div></div>';
+    h+='<div class="cb2"><div class="cl">💬 Comment from Amir</div><div contenteditable="true" style="width:100%;background:var(--s0);border:1px solid var(--bd);border-radius:5px;padding:6px 9px;font-size:13px;color:var(--tx);line-height:1.6;white-space:pre-wrap;word-break:break-word;outline:none;font-family:inherit;box-sizing:border-box;min-height:52px" data-pid="amir" data-yr="'+yr+'" oninput="saveEmpCommentYear(this.dataset.pid,this.dataset.yr,this.innerText)" onblur="saveEmpCommentYear(this.dataset.pid,this.dataset.yr,this.innerText)">'+escBr(appState.amir['empComment_'+yr]||'')+'</div></div>';
+    h+='<div class="cb2"><div class="cl">📝 Manager comment</div><div contenteditable="true" style="width:100%;background:var(--s0);border:1px solid var(--bd);border-radius:5px;padding:6px 9px;font-size:13px;color:var(--tx);line-height:1.6;white-space:pre-wrap;word-break:break-word;outline:none;font-family:inherit;box-sizing:border-box;min-height:52px" data-pid="amir" data-yr="'+yr+'" oninput="saveMgrCommentYear(this.dataset.pid,this.dataset.yr,this.innerText)" onblur="saveMgrCommentYear(this.dataset.pid,this.dataset.yr,this.innerText)">'+escBr(appState.amir['mgrComment_'+yr]||'')+'</div></div>';
     h+='</div>';
     var secs27=[['strengths','\u2705 Key Contributions & Strengths'],['growth','\uD83D\uDD27 Opportunities for Development'],['goals','\uD83C\uDFAF Future Deliverables & Goals']];
     var isMgr=!currentUser||(currentUser.role==='manager');
@@ -5001,17 +5009,21 @@ function startEditItem(id,pid){
   var itemYear=(appState[pid]&&appState[pid].itemYears&&appState[pid].itemYears[id])||curYear;
   var YEARS=['2025','2026','2027','2028'];
   var yearOpts=YEARS.map(function(y){return '<option value="'+y+'"'+(y===itemYear?' selected':'')+'>'+y+'</option>';}).join('');
+  var TAG_OPTS=[['tr','Training'],['pr','Project'],['ma','Machine Acceptance'],['bu','BU Support'],['ow','Ownership'],['ld','Leadership'],['dc','Documentation'],['mc','Machine'],['ot','Other']];
+  var curTag=(it.tags&&it.tags[0])||'tr';
+  var tagOpts=TAG_OPTS.map(function(t){return '<option value="'+t[0]+'"'+(t[0]===curTag?' selected':'')+'>'+t[1]+'</option>';}).join('');
 
   var overlay=document.createElement('div');
   overlay.id='item-edit-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center';
-  overlay.innerHTML='<div style="background:#1a1a1a;border:1px solid var(--ac);border-radius:8px;padding:22px;width:480px;max-width:95vw">'
+  overlay.innerHTML='<div style="background:#1a1a1a;border:1px solid var(--ac);border-radius:8px;padding:22px;width:500px;max-width:95vw">'
     +'<h3 style="color:var(--ac);margin:0 0 14px">✏ Edit Goal</h3>'
     +'<textarea id="item-edit-label" rows="2" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;resize:vertical;margin-bottom:10px">'+esc(it.label)+'</textarea>'
-    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'
-    +'<label style="font-size:12px;color:var(--txs)">Year:</label>'
-    +'<select id="item-edit-year" style="background:#111;border:1px solid #333;border-radius:4px;padding:6px 10px;color:#f0f0f0;font-size:13px">'+yearOpts+'</select>'
-    +'<span style="font-size:11px;color:var(--txm)">Move to a different year if needed</span>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
+    +'<div><label style="font-size:11px;color:var(--txs);display:block;margin-bottom:4px">Category</label>'
+    +'<select id="item-edit-tag" style="width:100%;background:#111;border:1px solid #333;border-radius:4px;padding:6px 10px;color:#f0f0f0;font-size:13px;color-scheme:dark">'+tagOpts+'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--txs);display:block;margin-bottom:4px">Year</label>'
+    +'<select id="item-edit-year" style="width:100%;background:#111;border:1px solid #333;border-radius:4px;padding:6px 10px;color:#f0f0f0;font-size:13px;color-scheme:dark">'+yearOpts+'</select></div>'
     +'</div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end">'
     +'<button onclick="document.getElementById(\'item-edit-overlay\').remove()" style="background:none;border:1px solid #555;border-radius:4px;padding:8px 16px;color:#aaa;cursor:pointer">Cancel</button>'
@@ -5029,7 +5041,11 @@ function saveEditItemModal(id,pid){
   if(!newLabel)return;
   var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
   var it=p.items.find(function(x){return x.id===id;});
-  if(it)it.label=newLabel;
+  if(it){
+    it.label=newLabel;
+    var tagEl=document.getElementById('item-edit-tag');
+    if(tagEl)it.tags=[tagEl.value];
+  }
   // Update year assignment
   if(!appState[pid].itemYears)appState[pid].itemYears={};
   appState[pid].itemYears[id]=newYear;
