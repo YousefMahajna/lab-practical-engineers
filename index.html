@@ -505,7 +505,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26c';
+var BUILD_TS='8.11.26d';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -5333,7 +5333,22 @@ function switchTab(pid){
   var panel=document.getElementById('panel-'+pid);if(panel)panel.classList.add('active');
   if(pid==='calendar')refreshAllCals();
   if(pid==='yousef')renderCalendar('mini-cal-yousef','yousef');
-  if(pid==='machines'){renderMachines();setTimeout(function(){switchMachTab('machines');},10);}
+  if(pid==='machines'){
+    renderMachines();
+    // Ensure tab strip is wired after panel is active
+    setTimeout(function(){
+      var bt=document.getElementById('mach-tab-machines');
+      var btr=document.getElementById('mach-tab-training');
+      if(!bt){
+        // Tab strip missing — panel was rebuilt without it, force re-inject
+        var pnl=document.getElementById('panel-machines');
+        if(pnl){
+          var strip='<div style="display:flex;gap:0;border-bottom:1px solid #222;margin-bottom:0"><button id="mach-tab-machines" onclick="switchMachTab(\'machines\')" style="background:transparent;border:none;border-bottom:2px solid #76b900;color:#76b900;font-size:13px;font-weight:700;padding:8px 20px;cursor:pointer">⚙️ Machines</button><button id="mach-tab-training" onclick="switchMachTab(\'training\')" style="background:transparent;border:none;border-bottom:2px solid transparent;color:#888;font-size:13px;font-weight:700;padding:8px 20px;cursor:pointer">🎓 Training Plan</button></div><div id="mach-panel-training" style="display:none;padding:16px"><div id="mach-training-content"></div></div>';
+          pnl.insertAdjacentHTML('beforeend',strip);
+        }
+      }
+    },50);
+  }
   if(pid==='users')renderUsersPanel();
   if(pid==='analysis')renderAnalysis();
   if(pid==='openars')renderOpenARs();
