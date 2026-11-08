@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26n';
+var BUILD_TS='8.11.26o';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2899,7 +2899,9 @@ function getVacDays(pid, year){
   return count;
 }
 function getXSCount(pid){
-  var xs=appState.xsections&&appState.xsections[pid];
+  var key=pid;
+  if(pid==='amir'){var ay=(appState.amir&&appState.amir.activeYear)||'2026';key='amir_xs_'+ay;}
+  var xs=appState.xsections&&appState.xsections[key];
   if(!xs)return 0;
   var rows=Array.isArray(xs)?xs:Object.values(xs);
   return rows.filter(function(r){return r&&(r.desc||r.date||r.product);}).length;
@@ -2959,19 +2961,19 @@ function setAmirYear(year){
   if(!appState.amir)appState.amir={};
   appState.amir.activeYear=year;
   saveState();
-  // Rebuild Amir panel
-  var container=document.getElementById('panels');
   var oldPanel=document.getElementById('panel-amir');
-  if(oldPanel&&container){
-    var tmp=document.createElement('div');
-    tmp.innerHTML=buildAmirPanel();
-    var built=tmp.firstElementChild;
-    if(built){
-      setTimeout(function(){var ft=document.querySelector('#panel-amir .itab.active')||document.querySelector('#panel-amir .itab');if(ft)ft.click();initAmirTextareas();},30);
-      oldPanel.parentNode.replaceChild(built,oldPanel);
-      initAmirTextareas();
-    }
-  }
+  if(!oldPanel)return;
+  var tmp=document.createElement('div');
+  tmp.innerHTML=buildAmirPanel();
+  var built=tmp.firstElementChild;
+  if(!built)return;
+  built.classList.add('active');
+  oldPanel.parentNode.replaceChild(built,oldPanel);
+  setTimeout(function(){
+    var ft=document.querySelector('#panel-amir .itab');
+    if(ft)ft.click();
+    initAmirTextareas();
+  },30);
 }
 
 function moveItemToYear(id,pid,toYear){
@@ -3965,7 +3967,8 @@ function buildAmirPanel(){
 
   h+='<div class="ip" id="ip-amir-xsection">';
   h+='<div style="margin-bottom:14px"><h3 style="font-size:15px;color:var(--nv-green)">🔬 X-Section Log</h3><p style="font-size:12px;color:var(--txs)">Cross-section sessions log</p></div>';
-  h+=buildXSectionTable('amir');
+  var amirXsPid='amir_xs_'+amirYear;
+  h+=buildXSectionTable(amirXsPid);
   h+='</div>';// /xsection
 
   h+='<div class="ip" id="ip-amir-focal2026">';
@@ -5508,7 +5511,7 @@ function switchInner(pid,tabId,el){
   var target=document.getElementById('ip-'+pid+'-'+tabId);
   if(target)target.classList.add('active');
   if(tabId==='vacation'){
-    var yr=(appState[pid]&&appState[pid].activeYear)||'2026';
+    var yr=pid==='amir'?((appState.amir&&appState.amir.activeYear)||'2026'):((appState[pid]&&appState[pid].activeYear)||'2026');
     if(pid==='amir')renderCalendar('mini-cal-amir','amir',yr);
     else renderCalendar('mini-cal-'+pid,pid,yr);
   }
