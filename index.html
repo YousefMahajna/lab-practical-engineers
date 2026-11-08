@@ -203,7 +203,8 @@ input.vc{accent-color:#76b900}input.tc2{accent-color:#f59e0b}
 .add-item-bar{display:flex;gap:7px;align-items:flex-start;background:var(--surface);border:1px dashed #3d5c00;border-radius:var(--r);padding:9px 12px;margin-top:8px}
 .add-item-bar textarea{flex:1;border:1px solid var(--bd);border-radius:5px;padding:5px 8px;font-size:13px;color:var(--tx);background:var(--s2);font-family:inherit;resize:none;height:38px;line-height:1.4}
 .add-item-bar textarea:focus{outline:none;border-color:#76b900}
-.add-item-bar select{border:1px solid var(--bd);border-radius:5px;padding:5px 7px;font-size:11px;color:var(--tx);background:var(--s2);cursor:pointer;height:38px}
+.add-item-bar select{border:1px solid var(--bd);border-radius:5px;padding:5px 7px;font-size:11px;color:var(--tx);background:var(--s2);cursor:pointer;height:38px;color-scheme:dark}
+.add-item-bar select option{background:#1a1a1a;color:#f0f0f0}
 .add-item-bar select:focus{outline:none;border-color:#76b900}
 .add-item-btn{padding:0 14px;height:38px;border-radius:5px;border:none;background:#76b900;color:#000;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .add-item-btn:hover{background:#8fd000}
@@ -333,6 +334,9 @@ input.vc{accent-color:#76b900}input.tc2{accent-color:#f59e0b}
 .amr-btn:hover,.nb:hover{background:#1a2a1a;color:#76b900;border-color:#76b900}
 .nb.hn{border-color:#f59e0b;color:#f59e0b;background:#1a1500}
 .ar.done .atk{color:#76b900!important}
+
+select{color-scheme:dark}
+select option{background:#1a1a1a!important;color:#f0f0f0!important}
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -505,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26h';
+var BUILD_TS='8.11.26i';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3193,7 +3197,13 @@ function buildItem(it,pid,ps){
   h+='<div class="cb" onclick="toggleItem(\''+it.id+'\',\''+pid+'\')">'+(done?'✓':'')+'</div>';
   h+='<div class="im" onclick="toggleNote(\''+it.id+'\',\''+pid+'\')">';
   h+='<div style="display:flex;align-items:center;gap:6px">';
+  var TAG_LABELS={tr:'Training',pr:'Project',ma:'Machine Acceptance',bu:'BU Support',ow:'Ownership',ld:'Leadership',dc:'Documentation',mc:'Machine',ot:'Other'};
+  var TAG_COLORS={tr:'#3b82f6',pr:'#8b5cf6',ma:'#f59e0b',bu:'#ec4899',ow:'#14b8a6',ld:'#76b900',dc:'#6b7280',mc:'#f97316',ot:'#64748b'};
+  var tagVal=(it.tags&&it.tags[0])||'';
+  var tagLabel=TAG_LABELS[tagVal]||tagVal;
+  var tagColor=TAG_COLORS[tagVal]||'#555';
   h+='<div class="il" id="il-'+it.id+'">'+esc(it.label)+'</div>';
+  if(tagLabel){h+='<span style="font-size:10px;font-weight:700;color:'+tagColor+';background:'+tagColor+'22;border:1px solid '+tagColor+'55;border-radius:3px;padding:1px 6px;white-space:nowrap">'+tagLabel+'</span>';}
   if(hasNote)h+='<span class="note-dot" title="Has comment" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;display:inline-block;box-shadow:0 0 5px #f59e0b99"></span>';
   h+='</div>';
   h+='<div class="pct-wrap">';
@@ -3521,7 +3531,7 @@ function buildPersonPanel(p){
     }
     h+='<div style="display:flex;gap:8px;align-items:center;margin-top:10px;padding:10px 12px;background:var(--s0);border:1px dashed var(--ace);border-radius:6px">';
     h+='<textarea id="new-item-text-'+p.id+'-'+yr+'" placeholder="New goal or deliverable for '+yr+'…" rows="1" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--ace);color:var(--tx);font-size:13px;padding:4px 6px;outline:none;resize:none;font-family:inherit;line-height:1.5"></textarea>';
-    h+='<select id="new-item-tag-'+p.id+'-'+yr+'" style="background:var(--s1);border:1px solid var(--ace);border-radius:4px;color:var(--tx);font-size:12px;padding:5px 8px;cursor:pointer">'
+    h+='<select id="new-item-tag-'+p.id+'-'+yr+'" style="background:#1a1a1a;border:1px solid var(--ace);border-radius:4px;color:#f0f0f0;font-size:12px;padding:5px 8px;cursor:pointer;color-scheme:dark">'
       +'<option value="tr">Training</option>'
       +'<option value="pr">Project</option>'
       +'<option value="ma">Machine Acceptance</option>'
