@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26o';
+var BUILD_TS='8.11.26p';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3317,7 +3317,7 @@ function addXSectionRow(pid){
       if(t.textContent.indexOf('X-Section')>=0)switchInner(tabName,'xsection',t);
     });
   }
-  if(pid==='amir'){
+  if(pid==='amir'||pid.startsWith('amir_xs_')){
     rerender('panel-amir', buildAmirPanel, 'amir');
   } else {
     var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
@@ -3344,7 +3344,7 @@ function deleteXSRow(pid,i){
       if(t.textContent.indexOf('X-Section')>=0)switchInner(tabName,'xsection',t);
     });
   }
-  if(pid==='amir'){
+  if(pid==='amir'||pid.startsWith('amir_xs_')){
     rerender('panel-amir', buildAmirPanel, 'amir');
   } else {
     var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
