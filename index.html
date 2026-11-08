@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26i';
+var BUILD_TS='8.11.26j';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2918,6 +2918,29 @@ function getGoalsPct(pid){
   return calcOverallPct(pid);
 }
 
+function addAmirGoal(yr){
+  var ta=document.getElementById('amir-new-goal-'+yr);
+  if(!ta||!ta.value.trim())return;
+  if(!appState.amir['goals_'+yr])appState.amir['goals_'+yr]=[];
+  if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]);
+  appState.amir['goals_'+yr].push({id:'ag_'+Date.now(),label:ta.value.trim(),done:false});
+  saveState();
+  setAmirYear(yr);
+}
+function toggleAmirGoal(yr,id){
+  if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+  var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
+  if(g)g.done=!g.done;
+  saveState();
+  setAmirYear(yr);
+}
+function deleteAmirGoal(yr,id){
+  if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
+  appState.amir['goals_'+yr]=appState.amir['goals_'+yr].filter(function(x){return x.id!==id;});
+  saveState();
+  setAmirYear(yr);
+}
+
 function setAmirYear(year){
   if(!appState.amir)appState.amir={};
   appState.amir.activeYear=year;
@@ -3203,7 +3226,6 @@ function buildItem(it,pid,ps){
   var tagLabel=TAG_LABELS[tagVal]||tagVal;
   var tagColor=TAG_COLORS[tagVal]||'#555';
   h+='<div class="il" id="il-'+it.id+'">'+esc(it.label)+'</div>';
-  if(tagLabel){h+='<span style="font-size:10px;font-weight:700;color:'+tagColor+';background:'+tagColor+'22;border:1px solid '+tagColor+'55;border-radius:3px;padding:1px 6px;white-space:nowrap">'+tagLabel+'</span>';}
   if(hasNote)h+='<span class="note-dot" title="Has comment" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;display:inline-block;box-shadow:0 0 5px #f59e0b99"></span>';
   h+='</div>';
   h+='<div class="pct-wrap">';
@@ -3212,6 +3234,7 @@ function buildItem(it,pid,ps){
   h+='<div class="pct-bar-wrap"><div class="pct-bar" id="pctbar-'+it.id+'" style="width:'+pct+'%;background:'+barColor+'"></div></div>';
   h+='</div>';
   h+='</div>';
+  if(tagLabel){h+='<span style="font-size:10px;font-weight:700;color:'+tagColor+';background:'+tagColor+'22;border:1px solid '+tagColor+'55;border-radius:3px;padding:2px 7px;white-space:nowrap;margin-right:4px">'+tagLabel+'</span>';}
   h+='<button class="edit-btn" title="Edit label" onclick="startEditItem(\''+it.id+'\',\''+pid+'\')">✏</button>';
   h+='<button class="del-btn" title="Delete item" onclick="deleteItem(\''+it.id+'\',\''+pid+'\')">&#10005;</button>';
   h+='<button class="nb'+(note?' hn':'')+'" id="nb-'+it.id+'" onclick="toggleNote(\''+it.id+'\',\''+pid+'\')">✎</button>';
@@ -3973,7 +3996,33 @@ function buildAmirPanel(){
   ['2027','2028'].forEach(function(yr){
     h+='<div class="ip" id="ip-amir-goals_'+yr+'">';
     h+='<div style="background:var(--acb);border:1px solid var(--ace);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--ac)">\uD83D\uDCCB <strong>'+yr+' Goals & Deliverables</strong></div>';
-    h+='<p style="color:var(--txm);font-style:italic;text-align:center;padding:40px 20px">No goals set for '+yr+' yet.</p>';
+    // Show existing amir goals for this year
+    var amirGoals=(appState.amir&&appState.amir['goals_'+yr])||[];
+    if(!Array.isArray(amirGoals))amirGoals=Object.values(amirGoals);
+    if(amirGoals.length===0){
+      h+='<p style="color:var(--txm);font-style:italic;padding:12px 0 4px">No goals for '+yr+' yet — add one below.</p>';
+    } else {
+      h+='<div class="sec">';
+      amirGoals.forEach(function(g){
+        var done=g.done||false;
+        h+='<div class="iw" style="position:relative"><div class="it'+(done?' done':'')+'">'
+          +'<div class="cb" onclick="toggleAmirGoal(\''+yr+'\',\''+g.id+'\')">'+( done?'✓':'')+'</div>'
+          +'<div class="im"><div class="il">'+esc(g.label)+'</div></div>'
+          +'<button onclick="deleteAmirGoal(\''+yr+'\',\''+g.id+'\')" style="background:none;border:none;color:var(--txm);cursor:pointer;font-size:13px;margin-left:4px">✕</button>'
+          +'</div></div>';
+      });
+      h+='</div>';
+    }
+    // Add bar
+    h+='<div style="display:flex;gap:8px;align-items:center;margin-top:10px;padding:10px 12px;background:var(--s0);border:1px dashed var(--ace);border-radius:6px">';
+    h+='<textarea id="amir-new-goal-'+yr+'" placeholder="New goal or deliverable for '+yr+'…" rows="1" style="flex:1;background:transparent;border:none;border-bottom:1px solid var(--ace);color:var(--tx);font-size:13px;padding:4px 6px;outline:none;resize:none;font-family:inherit;line-height:1.5"></textarea>';
+    h+='<select id="amir-new-tag-'+yr+'" style="background:#1a1a1a;border:1px solid var(--ace);border-radius:4px;color:#f0f0f0;font-size:12px;padding:5px 8px;cursor:pointer;color-scheme:dark">'
+      +'<option value="tr">Training</option><option value="pr">Project</option><option value="ma">Machine Acceptance</option>'
+      +'<option value="bu">BU Support</option><option value="ow">Ownership</option><option value="ld">Leadership</option>'
+      +'<option value="dc">Documentation</option><option value="mc">Machine</option><option value="ot">Other</option>'
+      +'</select>';
+    h+='<button onclick="addAmirGoal(\''+yr+'\')" style="background:var(--ac);border:none;border-radius:4px;padding:6px 16px;color:#000;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">+ Add</button>';
+    h+='</div>';
     h+='</div>';
     var secs27=[['strengths','\u2705 Key Contributions & Strengths'],['growth','\uD83D\uDD27 Opportunities for Development'],['goals','\uD83C\uDFAF Future Deliverables & Goals']];
     var isMgr=!currentUser||(currentUser.role==='manager');
