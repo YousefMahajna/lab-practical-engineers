@@ -505,7 +505,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='8.11.26f';
+var BUILD_TS='8.11.26g';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3512,18 +3512,18 @@ function buildPersonPanel(p){
     var yrItems=p.items.filter(function(it){return (itemYears[it.id]||'2026')===yr;});
     h+='<div class="ip" id="ip-'+p.id+'-goals_'+yr+'">';
     h+='<div style="background:var(--acb);border:1px solid var(--ace);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--ac)">\uD83D\uDCCB <strong>'+yr+' Goals & Deliverables</strong></div>';
+    h+='<div class="sec"><div class="st">Goals and Deliverables</div>';
     if(yrItems.length===0){
-      h+='<p style="color:var(--txm);font-style:italic;padding:20px 0">No goals assigned to '+yr+' yet. Use ✏ Edit on a goal to move it here.</p>';
+      h+='<p style="color:var(--txm);font-style:italic;padding:12px 0 4px">No goals for '+yr+' yet — add one below.</p>';
     } else {
-      h+='<div class="sec"><div class="st">Goals and Deliverables</div>';
       yrItems.forEach(function(it){h+=buildItem(it,p.id,ps);});
-      h+='<div class="add-item-bar">';
-      h+='<textarea id="new-item-text-'+p.id+'-'+yr+'" placeholder="New goal or deliverable for '+yr+'…"></textarea>';
-      h+='<select id="new-item-tag-'+p.id+'-'+yr+'"><option value="tr">Training</option><option value="ld">Leadership</option><option value="dc">Documentation</option><option value="mc">Machine</option></select>';
-      h+='<button class="add-item-btn" onclick="addItemYear(\''+p.id+'\',\''+yr+'\')">+ Add</button>';
-      h+='</div>';
-      h+='</div>';
     }
+    h+='<div class="add-item-bar">';
+    h+='<textarea id="new-item-text-'+p.id+'-'+yr+'" placeholder="New goal or deliverable for '+yr+'…"></textarea>';
+    h+='<select id="new-item-tag-'+p.id+'-'+yr+'"><option value="tr">Training</option><option value="ld">Leadership</option><option value="dc">Documentation</option><option value="mc">Machine</option></select>';
+    h+='<button class="add-item-btn" onclick="addItemYear(\''+p.id+'\',\''+yr+'\')">+ Add</button>';
+    h+='</div>';
+    h+='</div>';
     // Team Dynamics — year-specific
     var yrScore=ps['teamScore_'+yr]||0;
     var yrTeam=ps['teamComment_'+yr]||'';
