@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='9.11.26';
+var BUILD_TS='9.11.26b';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3293,7 +3293,7 @@ function buildXSectionTable(pid){
 function buildXSectionRow(pid,row,i){
   var r='<tr id="xs-row-'+pid+'-'+i+'">';
   r+='<td style="padding:4px 5px;white-space:nowrap;width:90px"><input type="date" value="'+esc(row.date||'')+'" onchange="saveXS(\''+pid+'\','+i+',\'date\',this.value)" style="cursor:pointer;color-scheme:dark;background:#1a1a1a;border:1px solid #76b900;border-radius:4px;padding:4px 5px;color:#f0f0f0;font-size:11px;width:1px;min-width:100px"></td>';
-  r+='<td><textarea rows="2" placeholder="Cross-section description…" style="min-height:60px;width:100%;resize:none;overflow:hidden;box-sizing:border-box" oninput="this.style.height=\'auto\';this.style.height=Math.max(60,this.scrollHeight)+\'px\';saveXS(\''+pid+'\','+i+',\'desc\',this.value)" onchange="saveXS(\''+pid+'\','+i+',\'desc\',this.value)">'+esc(row.desc||'')+'</textarea></td>';
+  r+='<td><textarea rows="2" class="xs-desc-ta" placeholder="Cross-section description…" style="min-height:60px;width:100%;resize:none;overflow:hidden;box-sizing:border-box" oninput="this.style.height=\'auto\';this.style.height=Math.max(60,this.scrollHeight)+\'px\';saveXS(\''+pid+'\','+i+',\'desc\',this.value)" onchange="saveXS(\''+pid+'\','+i+',\'desc\',this.value)">'+esc(row.desc||'')+'</textarea></td>';
   r+='<td style=\"white-space:normal\"><input placeholder=\"Product\" style=\"width:100%\" value="'+esc(row.product||'')+'" onchange="saveXS(\''+pid+'\','+i+',\'product\',this.value)"></td>';
   r+='<td style=\"white-space:normal\"><input placeholder=\"Site\" style=\"width:100%\" value="'+esc(row.fab||'')+'" onchange="saveXS(\''+pid+'\','+i+',\'fab\',this.value)"></td>';
   r+='<td style=\"white-space:normal\"><input placeholder=\"Owner\" style=\"width:100%\" value="'+esc(row.owner||'')+'" onchange="saveXS(\''+pid+'\','+i+',\'owner\',this.value)"></td>';
@@ -5522,6 +5522,12 @@ function switchInner(pid,tabId,el){
     var yr=pid==='amir'?((appState.amir&&appState.amir.activeYear)||'2026'):((appState[pid]&&appState[pid].activeYear)||'2026');
     if(pid==='amir')renderCalendar('mini-cal-amir','amir',yr);
     else renderCalendar('mini-cal-'+pid,pid,yr);
+  }
+  if(tabId==='xsection'){
+    setTimeout(function(){
+      var ip=document.getElementById('ip-'+pid+'-xsection');
+      if(ip)ip.querySelectorAll('.xs-desc-ta').forEach(function(ta){ta.style.height='auto';ta.style.height=Math.max(60,ta.scrollHeight)+'px';});
+    },30);
   }
 }
 function switchTab(pid){
