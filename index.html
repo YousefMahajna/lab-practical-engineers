@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='9.11.26c';
+var BUILD_TS='9.11.26d';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -620,8 +620,9 @@ var PEOPLE=[
     {id:'g8',label:'X-section equipment purchased and installed in old lab',tags:['mc']},
     {id:'g9',label:'WIs for future products developed',tags:['dc']},
   ]},
-  {id:'michael',name:'Michael',color:'#e67e22',site:'ASM site — wire bond machine training',
+  {id:'michael',name:'Michael',color:'#e67e22',site:'',
    items:[
+    {id:'m0',label:'ASM site — wire bond machine training',tags:['tr']},
     {id:'m1',label:'L2 certification on DC machine achieved',tags:['mc']},
     {id:'m2',label:'L2 certification on Ficontec machine achieved',tags:['mc']},
     {id:'m3',label:'XYZ destructive testing machine training completed',tags:['tr']},
