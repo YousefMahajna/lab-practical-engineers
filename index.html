@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='9.11.26b';
+var BUILD_TS='9.11.26c';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2607,11 +2607,26 @@ function _guardState(){
       (PEOPLE||[]).forEach(function(p){
         // Apply edited labels from Firebase _allItems
         var _fbItems=_fbAllItems[p.id]||[];
+        if(!Array.isArray(_fbItems))_fbItems=Object.values(_fbItems);
+        // Restore labels and custom items
         _fbItems.forEach(function(savedIt){
           var existing=p.items.find(function(it){return it.id===savedIt.id;});
-          if(existing&&savedIt.label)existing.label=savedIt.label; // restore edited label
-          else if(!existing&&savedIt.id&&savedIt.id.startsWith('ci_'))p.items.push(savedIt); // restore custom item
+          if(existing&&savedIt.label)existing.label=savedIt.label;
+          else if(!existing&&savedIt.id&&savedIt.id.startsWith('ci_'))p.items.push(savedIt);
         });
+        // Restore saved ORDER if _fbItems has all current items (order was explicitly saved)
+        if(_fbItems.length>0){
+          var savedOrder=_fbItems.map(function(x){return x.id;});
+          var currentIds=p.items.map(function(x){return x.id;});
+          // Only reorder if all saved IDs exist in current items (safe to reorder)
+          var allPresent=savedOrder.every(function(id){return currentIds.indexOf(id)>=0;});
+          if(allPresent&&savedOrder.length===currentIds.length){
+            p.items.sort(function(a,b){
+              var ai=savedOrder.indexOf(a.id);var bi=savedOrder.indexOf(b.id);
+              return (ai<0?999:ai)-(bi<0?999:bi);
+            });
+          }
+        }
         // Also restore custom items from embedded app-data (fallback)
         var _savedItems=_emAllItems[p.id]||[];
         _savedItems.forEach(function(savedIt){
@@ -3014,13 +3029,7 @@ function initItemDrag(pid){
       if(fromIdx<0||toIdx<0)return;
       var moved=p.items.splice(fromIdx,1)[0];
       p.items.splice(toIdx,0,moved);
-      // Also reorder in _allItems if it exists
-      if(appState._allItems){
-        var ai=Array.isArray(appState._allItems)?appState._allItems:Object.values(appState._allItems);
-        var fi2=ai.findIndex(function(x){return x.id===dragId;});
-        var ti2=ai.findIndex(function(x){return x.id===overId;});
-        if(fi2>=0&&ti2>=0){var m2=ai.splice(fi2,1)[0];ai.splice(ti2,0,m2);appState._allItems=ai;}
-      }
+      _persistCustomItems(); // save new order to appState._allItems
       saveState();
       // Rebuild panel
       var old=document.getElementById('panel-'+pid);
