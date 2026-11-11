@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='9.11.26g-restore';
+var BUILD_TS='9.11.26h-RESTORE';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2660,6 +2660,24 @@ function loadState(callback){
 
   // Step 2: Try to merge Firebase progress data on top
   if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length&&FIREBASE_READY&&firebaseDB){
+    // RESTORE MODE: embedded data takes priority over Firebase (data was corrupted by engineer overwrite)
+    var RESTORE_MODE=true;
+    if(RESTORE_MODE){
+      try{
+        var _emElR=document.getElementById('app-data');
+        if(_emElR){
+          var _restored=JSON.parse(_emElR.textContent.trim());
+          Object.assign(appState,_restored);
+          _guardState();
+          // Push restored data to Firebase immediately
+          firebaseDB.ref("appState").set(appState).then(function(){
+            console.log('Restore complete: data pushed to Firebase');
+          });
+          if(callback)callback();
+          return;
+        }
+      }catch(e){console.error('Restore failed:',e);}
+    }
     firebaseDB.ref("appState").once("value").then(function(snap){
       var fbData=snap.val();
       if(fbData&&Object.keys(fbData).length>2){
