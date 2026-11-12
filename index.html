@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26h';
+var BUILD_TS='13.11.26i';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2421,10 +2421,13 @@ function importFromFullExcel(input){
                   (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
                     var t=(cXml.match(/t="([^"]*)"/))||[];
                     var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
+                    var r=(cXml.match(/r="([A-Z]+)/))||[];
+                    var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
                     var val='';
                     if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
-                    cells.push(val);
+                    cells[col]=val;
                   });
+                  for(var _fi=0;_fi<cells.length;_fi++){if(cells[_fi]===undefined)cells[_fi]='';}
                   rowData.push(cells);
                 });
                 if(name==='amir'){
