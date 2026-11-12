@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26b';
+var BUILD_TS='13.11.26c';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2229,6 +2229,122 @@ function _buildXlsx(){
     sNames.push('Amir');sXmls.push(shXml(rows,CW_AMIR));
     CW=CW_ENG;NC=NC_ENG;
   })();
+
+  // ── Sessions ──────────────────────────────────────────────
+  (function(){
+    var sessions=Array.isArray(appState.sessions)?appState.sessions:Object.values(appState.sessions||{});
+    var CW2=[{wch:40},{wch:20},{wch:14},{wch:10},{wch:40},{wch:30},{wch:40}];
+    var rows=[];
+    rows.push([mkHdr('Lab Sessions',7,GRN,WHT)]);
+    rows.push([mkHdr('Exported: '+xts(),7,DRK,GRN)]);
+    rows.push([mkC('Title',xf(GRN,BLK,1)),mkC('Presenter',xf(GRN,BLK,1)),mkC('Date',xf(GRN,BLK,1)),mkC('Duration',xf(GRN,BLK,1)),mkC('Agenda',xf(GRN,BLK,1)),mkC('Attendees',xf(GRN,BLK,1)),mkC('Done',xf(GRN,BLK,1))]);
+    sessions.forEach(function(s){
+      rows.push([mkC(s.title||''),mkC(s.presenter||''),mkC(s.date||''),mkC(s.time||''),mkC(s.agenda||''),mkC((s.attendees||[]).join(', ')),mkC(s.done?'✓':'')]);
+    });
+    sNames.push('Sessions');sXmls.push(shXml(rows,CW2));
+  })();
+
+  // ── My Tasks (Yousef) ──────────────────────────────────────
+  (function(){
+    var tasks=Array.isArray(appState.myTasks&&appState.myTasks.items)?appState.myTasks.items:Object.values((appState.myTasks&&appState.myTasks.items)||{});
+    var CW2=[{wch:12},{wch:40},{wch:20},{wch:14},{wch:40},{wch:40}];
+    var rows=[];
+    rows.push([mkHdr('My Tasks — Yousef',6,GRN,WHT)]);
+    rows.push([mkHdr('Exported: '+xts(),6,DRK,GRN)]);
+    rows.push([mkC('Year',xf(GRN,BLK,1)),mkC('Title',xf(GRN,BLK,1)),mkC('Category',xf(GRN,BLK,1)),mkC('Date',xf(GRN,BLK,1)),mkC('Details',xf(GRN,BLK,1)),mkC('Impact',xf(GRN,BLK,1))]);
+    tasks.forEach(function(t){
+      rows.push([mkC(t.year||'2026'),mkC(t.title||''),mkC(t.category||''),mkC(t.date||''),mkC(t.details||''),mkC(t.impact||'')]);
+    });
+    sNames.push('My Tasks');sXmls.push(shXml(rows,CW2));
+  })();
+
+  // ── Vacations ──────────────────────────────────────────────
+  (function(){
+    var vacs=appState.vacations||{};
+    var pids=['yousef','haytam','garold','michael','samer','amir'];
+    var CW2=[{wch:14},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14}];
+    var rows=[];
+    rows.push([mkHdr('Team Vacations 2026',8,GRN,WHT)]);
+    rows.push([mkHdr('Exported: '+xts(),8,DRK,GRN)]);
+    rows.push([mkC('Date',xf(GRN,BLK,1)),mkC('Yousef',xf(GRN,BLK,1)),mkC('Haytam',xf(GRN,BLK,1)),mkC('Garold',xf(GRN,BLK,1)),mkC('Michael',xf(GRN,BLK,1)),mkC('Samer',xf(GRN,BLK,1)),mkC('Amir',xf(GRN,BLK,1)),mkC('Type',xf(GRN,BLK,1))]);
+    Object.keys(vacs).sort().forEach(function(dt){
+      var day=vacs[dt];
+      var row=[mkC(dt)];
+      pids.forEach(function(pid){
+        var isVac=(day.vac||[]).indexOf(pid)>=0;
+        var isTrip=(day.trip||[]).indexOf(pid)>=0;
+        row.push(mkC(isVac?'🏖 Vacation':isTrip?'✈️ Trip':''));
+      });
+      var types=[];
+      if((day.vac||[]).length>0)types.push('Vacation');
+      if((day.trip||[]).length>0)types.push('Business Trip');
+      row.push(mkC(types.join('/')));
+      if((day.vac||[]).length>0||(day.trip||[]).length>0)rows.push(row);
+    });
+    sNames.push('Vacations');sXmls.push(shXml(rows,CW2));
+  })();
+
+  // ── Machines ──────────────────────────────────────────────
+  (function(){
+    var machines=Array.isArray(appState.machines)?appState.machines:Object.values(appState.machines||{});
+    var sc=appState.machineScores||{};
+    var gl=appState.machineGoals||{};
+    var pids=['haytam','garold','michael','samer','amir'];
+    var CW2=[{wch:24},{wch:12},{wch:16}].concat(pids.map(function(){return {wch:14};})).concat(pids.map(function(){return {wch:14};}));
+    var rows=[];
+    rows.push([mkHdr('Lab Machines',3+pids.length*2,GRN,WHT)]);
+    rows.push([mkHdr('Exported: '+xts(),3+pids.length*2,DRK,GRN)]);
+    var hdr=[mkC('Machine',xf(GRN,BLK,1)),mkC('Owner',xf(GRN,BLK,1)),mkC('Category',xf(GRN,BLK,1))];
+    pids.forEach(function(p){hdr.push(mkC(p.charAt(0).toUpperCase()+p.slice(1)+' Level',xf(BLUE_BG,BLUE_FG,1)));});
+    pids.forEach(function(p){hdr.push(mkC(p.charAt(0).toUpperCase()+p.slice(1)+' Goal',xf(PURP_BG,PURP_FG,1)));});
+    rows.push(hdr);
+    machines.forEach(function(m){
+      var row=[mkC(m.name||''),mkC(m.owner||''),mkC(m.category||'')];
+      pids.forEach(function(p){row.push(mkC(sc[m.id+'__'+p]||0));});
+      pids.forEach(function(p){row.push(mkC(gl[m.id+'__'+p]||0));});
+      rows.push(row);
+    });
+    sNames.push('Machines');sXmls.push(shXml(rows,CW2));
+  })();
+
+  // ── Open ARs ──────────────────────────────────────────────
+  (function(){
+    var ars=Array.isArray(appState.openARs)?appState.openARs:Object.values(appState.openARs||{});
+    var CW2=[{wch:40},{wch:12},{wch:14},{wch:14},{wch:20},{wch:30}];
+    var rows=[];
+    rows.push([mkHdr('Open Action Items',6,GRN,WHT)]);
+    rows.push([mkHdr('Exported: '+xts(),6,DRK,GRN)]);
+    rows.push([mkC('Title',xf(GRN,BLK,1)),mkC('Status',xf(GRN,BLK,1)),mkC('Priority',xf(GRN,BLK,1)),mkC('Owner',xf(GRN,BLK,1)),mkC('Engineer',xf(GRN,BLK,1)),mkC('Note',xf(GRN,BLK,1))]);
+    ars.forEach(function(ar){
+      rows.push([mkC(ar.title||''),mkC(ar.status||''),mkC(ar.priority||''),mkC(ar.owner||''),mkC(ar.engineer||''),mkC(ar.note||'')]);
+    });
+    sNames.push('Open ARs');sXmls.push(shXml(rows,CW2));
+  })();
+
+  // ── Machine Training ──────────────────────────────────────
+  (function(){
+    var mts=Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||{});
+    var CW2=[{wch:28},{wch:16},{wch:14},{wch:14},{wch:50},{wch:16},{wch:30}];
+    var rows=[];
+    rows.push([mkHdr('Machine Training Plans',7,GRN,WHT)]);
+    rows.push([mkHdr('Exported: '+xts(),7,DRK,GRN)]);
+    rows.push([mkC('Machine',xf(GRN,BLK,1)),mkC('Site',xf(GRN,BLK,1)),mkC('From',xf(GRN,BLK,1)),mkC('To',xf(GRN,BLK,1)),mkC('Plan',xf(GRN,BLK,1)),mkC('Attendee',xf(GRN,BLK,1)),mkC('Status / Feedback',xf(GRN,BLK,1))]);
+    mts.forEach(function(mt){
+      var atts=mt.attendees_list||[];
+      var firstRow=true;
+      if(atts.length===0){
+        rows.push([mkC(mt.machine||''),mkC(mt.site||''),mkC(mt.dateFrom||''),mkC(mt.dateTo||''),mkC((mt.plan||'').replace(/\n/g,' | ')),mkC('—'),mkC('')]);
+      } else {
+        atts.forEach(function(name){
+          var att=(mt.attendees||{})[name]||{};
+          rows.push([mkC(firstRow?mt.machine||'':''),mkC(firstRow?mt.site||'':''),mkC(firstRow?mt.dateFrom||'':''),mkC(firstRow?mt.dateTo||'':''),mkC(firstRow?(mt.plan||'').replace(/\n/g,' | '):''),mkC(name),mkC((att.status||'')+(att.feedback?' — '+att.feedback:''))]);
+          firstRow=false;
+        });
+      }
+    });
+    sNames.push('Machine Training');sXmls.push(shXml(rows,CW2));
+  })();
+
   var zip=new JSZip();
   var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>';
   sNames.forEach(function(_,i){ct+='<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';});
