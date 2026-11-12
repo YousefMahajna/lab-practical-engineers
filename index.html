@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26e';
+var BUILD_TS='13.11.26f';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2157,7 +2157,7 @@ function _buildXlsx(){
     return r;
   }
   function hRow(ls){return{cells:ls.map(function(l){return H(l);}),h:22};}
-  function titleRow(lbl,span){return{cells:[cS(lbl,ST.title)],h:20,merge:[{s:{r:0,c:0},e:{r:0,c:span-1}}]};}
+  function titleRow(lbl,span){var cells=[cS(lbl,ST.title)];for(var _i=1;_i<span;_i++)cells.push(cS('',ST.blank));return{cells:cells,h:20};}
   function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v),ST.norm);}),h:16};}
   function mhRow(lbl){
     var r={cells:[cS(lbl,ST.monthH)],h:22,merge:[[0,NC-1]]};
@@ -2233,7 +2233,7 @@ function _buildXlsx(){
   })();
 
   // ── Sessions ──────────────────────────────────────────────
-  (function(){
+  try{(function(){
     var sessions=Array.isArray(appState.sessions)?appState.sessions:Object.values(appState.sessions||{});
     var CW2=[{wch:40},{wch:20},{wch:14},{wch:10},{wch:40},{wch:30},{wch:10}];
     var rows=[];
@@ -2243,10 +2243,10 @@ function _buildXlsx(){
       rows.push(sRow2([s.title||'',s.presenter||'',s.date||'',s.time||'',s.agenda||'',(s.attendees||[]).join(', '),s.done?'Yes':'']));
     });
     sNames.push('Sessions');sXmls.push(shXml(rows,CW2));
-  })();
+  })();}catch(e){console.error('Sessions sheet:',e);}
 
   // ── My Tasks (Yousef) ──────────────────────────────────────
-  (function(){
+  try{(function(){
     var tasks=Array.isArray(appState.myTasks&&appState.myTasks.items)?appState.myTasks.items:Object.values((appState.myTasks&&appState.myTasks.items)||{});
     var CW2=[{wch:12},{wch:40},{wch:20},{wch:14},{wch:40},{wch:40}];
     var rows=[];
@@ -2256,10 +2256,10 @@ function _buildXlsx(){
       rows.push(sRow2([t.year||'2026',t.title||'',t.category||'',t.date||'',t.details||'',t.impact||'']));
     });
     sNames.push('My Tasks');sXmls.push(shXml(rows,CW2));
-  })();
+  })();}catch(e){console.error('MyTasks sheet:',e);}
 
   // ── Vacations ──────────────────────────────────────────────
-  (function(){
+  try{(function(){
     var vacs=appState.vacations||{};
     var pids=['yousef','haytam','garold','michael','samer','amir'];
     var CW2=[{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:16}];
@@ -2282,10 +2282,10 @@ function _buildXlsx(){
       rows.push(sRow2(cells));
     });
     sNames.push('Vacations');sXmls.push(shXml(rows,CW2));
-  })();
+  })();}catch(e){console.error('Vacations sheet:',e);}
 
   // ── Machines ──────────────────────────────────────────────
-  (function(){
+  try{(function(){
     var machines=Array.isArray(appState.machines)?appState.machines:Object.values(appState.machines||{});
     var sc=appState.machineScores||{};
     var gl=appState.machineGoals||{};
@@ -2304,10 +2304,10 @@ function _buildXlsx(){
       rows.push(sRow2(cells));
     });
     sNames.push('Machines');sXmls.push(shXml(rows,CW2));
-  })();
+  })();}catch(e){console.error('Machines sheet:',e);}
 
   // ── Open ARs ──────────────────────────────────────────────
-  (function(){
+  try{(function(){
     var ars=Array.isArray(appState.openARs)?appState.openARs:Object.values(appState.openARs||{});
     var CW2=[{wch:44},{wch:12},{wch:12},{wch:14},{wch:14},{wch:30}];
     var rows=[];
@@ -2317,10 +2317,10 @@ function _buildXlsx(){
       rows.push(sRow2([ar.title||'',ar.status||'',ar.priority||'',ar.owner||'',ar.engineer||'',ar.note||'']));
     });
     sNames.push('Open ARs');sXmls.push(shXml(rows,CW2));
-  })();
+  })();}catch(e){console.error('OpenARs sheet:',e);}
 
   // ── Machine Training ──────────────────────────────────────
-  (function(){
+  try{(function(){
     var mts=Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||{});
     var CW2=[{wch:28},{wch:16},{wch:14},{wch:14},{wch:50},{wch:16},{wch:30}];
     var rows=[];
@@ -2341,7 +2341,7 @@ function _buildXlsx(){
       }
     });
     sNames.push('Machine Training');sXmls.push(shXml(rows,CW2));
-  })();
+  })();}catch(e){console.error('MachTraining sheet:',e);}
 
   var zip=new JSZip();
   var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>';
