@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26d';
+var BUILD_TS='13.11.26e';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2157,6 +2157,8 @@ function _buildXlsx(){
     return r;
   }
   function hRow(ls){return{cells:ls.map(function(l){return H(l);}),h:22};}
+  function titleRow(lbl,span){return{cells:[cS(lbl,ST.title)],h:20,merge:[{s:{r:0,c:0},e:{r:0,c:span-1}}]};}
+  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v),ST.norm);}),h:16};}
   function mhRow(lbl){
     var r={cells:[cS(lbl,ST.monthH)],h:22,merge:[[0,NC-1]]};
     for(var i=1;i<NC;i++)r.cells.push(cB(ST.monthH));
@@ -2233,13 +2235,12 @@ function _buildXlsx(){
   // ── Sessions ──────────────────────────────────────────────
   (function(){
     var sessions=Array.isArray(appState.sessions)?appState.sessions:Object.values(appState.sessions||{});
-    var CW2=[{wch:40},{wch:20},{wch:14},{wch:10},{wch:40},{wch:30},{wch:40}];
+    var CW2=[{wch:40},{wch:20},{wch:14},{wch:10},{wch:40},{wch:30},{wch:10}];
     var rows=[];
-    rows.push([mkHdr('Lab Sessions',7,GRN,WHT)]);
-    rows.push([mkHdr('Exported: '+xts(),7,DRK,GRN)]);
-    rows.push([mkC('Title',xf(GRN,BLK,1)),mkC('Presenter',xf(GRN,BLK,1)),mkC('Date',xf(GRN,BLK,1)),mkC('Duration',xf(GRN,BLK,1)),mkC('Agenda',xf(GRN,BLK,1)),mkC('Attendees',xf(GRN,BLK,1)),mkC('Done',xf(GRN,BLK,1))]);
+    rows.push(titleRow('Lab Sessions — '+xts(),7));
+    rows.push(hRow(['Title','Presenter','Date','Duration','Agenda','Attendees','Done']));
     sessions.forEach(function(s){
-      rows.push([mkC(s.title||''),mkC(s.presenter||''),mkC(s.date||''),mkC(s.time||''),mkC(s.agenda||''),mkC((s.attendees||[]).join(', ')),mkC(s.done?'✓':'')]);
+      rows.push(sRow2([s.title||'',s.presenter||'',s.date||'',s.time||'',s.agenda||'',(s.attendees||[]).join(', '),s.done?'Yes':'']));
     });
     sNames.push('Sessions');sXmls.push(shXml(rows,CW2));
   })();
@@ -2249,11 +2250,10 @@ function _buildXlsx(){
     var tasks=Array.isArray(appState.myTasks&&appState.myTasks.items)?appState.myTasks.items:Object.values((appState.myTasks&&appState.myTasks.items)||{});
     var CW2=[{wch:12},{wch:40},{wch:20},{wch:14},{wch:40},{wch:40}];
     var rows=[];
-    rows.push([mkHdr('My Tasks — Yousef',6,GRN,WHT)]);
-    rows.push([mkHdr('Exported: '+xts(),6,DRK,GRN)]);
-    rows.push([mkC('Year',xf(GRN,BLK,1)),mkC('Title',xf(GRN,BLK,1)),mkC('Category',xf(GRN,BLK,1)),mkC('Date',xf(GRN,BLK,1)),mkC('Details',xf(GRN,BLK,1)),mkC('Impact',xf(GRN,BLK,1))]);
+    rows.push(titleRow('My Tasks — Yousef — '+xts(),6));
+    rows.push(hRow(['Year','Title','Category','Date','Details','Impact']));
     tasks.forEach(function(t){
-      rows.push([mkC(t.year||'2026'),mkC(t.title||''),mkC(t.category||''),mkC(t.date||''),mkC(t.details||''),mkC(t.impact||'')]);
+      rows.push(sRow2([t.year||'2026',t.title||'',t.category||'',t.date||'',t.details||'',t.impact||'']));
     });
     sNames.push('My Tasks');sXmls.push(shXml(rows,CW2));
   })();
@@ -2262,24 +2262,24 @@ function _buildXlsx(){
   (function(){
     var vacs=appState.vacations||{};
     var pids=['yousef','haytam','garold','michael','samer','amir'];
-    var CW2=[{wch:14},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14}];
+    var CW2=[{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:16}];
     var rows=[];
-    rows.push([mkHdr('Team Vacations 2026',8,GRN,WHT)]);
-    rows.push([mkHdr('Exported: '+xts(),8,DRK,GRN)]);
-    rows.push([mkC('Date',xf(GRN,BLK,1)),mkC('Yousef',xf(GRN,BLK,1)),mkC('Haytam',xf(GRN,BLK,1)),mkC('Garold',xf(GRN,BLK,1)),mkC('Michael',xf(GRN,BLK,1)),mkC('Samer',xf(GRN,BLK,1)),mkC('Amir',xf(GRN,BLK,1)),mkC('Type',xf(GRN,BLK,1))]);
+    rows.push(titleRow('Team Vacations — '+xts(),8));
+    rows.push(hRow(['Date','Yousef','Haytam','Garold','Michael','Samer','Amir','Type']));
     Object.keys(vacs).sort().forEach(function(dt){
       var day=vacs[dt];
-      var row=[mkC(dt)];
+      if(!(day.vac||[]).length&&!(day.trip||[]).length)return;
+      var cells=[dt];
       pids.forEach(function(pid){
         var isVac=(day.vac||[]).indexOf(pid)>=0;
         var isTrip=(day.trip||[]).indexOf(pid)>=0;
-        row.push(mkC(isVac?'🏖 Vacation':isTrip?'✈️ Trip':''));
+        cells.push(isVac?'Vacation':isTrip?'Business Trip':'');
       });
       var types=[];
-      if((day.vac||[]).length>0)types.push('Vacation');
-      if((day.trip||[]).length>0)types.push('Business Trip');
-      row.push(mkC(types.join('/')));
-      if((day.vac||[]).length>0||(day.trip||[]).length>0)rows.push(row);
+      if((day.vac||[]).length)types.push('Vacation');
+      if((day.trip||[]).length)types.push('Business Trip');
+      cells.push(types.join('/'));
+      rows.push(sRow2(cells));
     });
     sNames.push('Vacations');sXmls.push(shXml(rows,CW2));
   })();
@@ -2290,19 +2290,18 @@ function _buildXlsx(){
     var sc=appState.machineScores||{};
     var gl=appState.machineGoals||{};
     var pids=['haytam','garold','michael','samer','amir'];
-    var CW2=[{wch:24},{wch:12},{wch:16}].concat(pids.map(function(){return {wch:14};})).concat(pids.map(function(){return {wch:14};}));
+    var CW2=[{wch:24},{wch:14},{wch:16},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}];
     var rows=[];
-    rows.push([mkHdr('Lab Machines',3+pids.length*2,GRN,WHT)]);
-    rows.push([mkHdr('Exported: '+xts(),3+pids.length*2,DRK,GRN)]);
-    var hdr=[mkC('Machine',xf(GRN,BLK,1)),mkC('Owner',xf(GRN,BLK,1)),mkC('Category',xf(GRN,BLK,1))];
-    pids.forEach(function(p){hdr.push(mkC(p.charAt(0).toUpperCase()+p.slice(1)+' Level',xf(BLUE_BG,BLUE_FG,1)));});
-    pids.forEach(function(p){hdr.push(mkC(p.charAt(0).toUpperCase()+p.slice(1)+' Goal',xf(PURP_BG,PURP_FG,1)));});
-    rows.push(hdr);
+    rows.push(titleRow('Lab Machines — '+xts(),3+pids.length*2));
+    var hdrs=['Machine','Owner','Category'];
+    pids.forEach(function(p){hdrs.push(p.charAt(0).toUpperCase()+p.slice(1)+' Level');});
+    pids.forEach(function(p){hdrs.push(p.charAt(0).toUpperCase()+p.slice(1)+' Goal');});
+    rows.push(hRow(hdrs));
     machines.forEach(function(m){
-      var row=[mkC(m.name||''),mkC(m.owner||''),mkC(m.category||'')];
-      pids.forEach(function(p){row.push(mkC(sc[m.id+'__'+p]||0));});
-      pids.forEach(function(p){row.push(mkC(gl[m.id+'__'+p]||0));});
-      rows.push(row);
+      var cells=[m.name||'',m.owner||'',m.category||''];
+      pids.forEach(function(p){cells.push(String(sc[m.id+'__'+p]||0));});
+      pids.forEach(function(p){cells.push(String(gl[m.id+'__'+p]||0));});
+      rows.push(sRow2(cells));
     });
     sNames.push('Machines');sXmls.push(shXml(rows,CW2));
   })();
@@ -2310,13 +2309,12 @@ function _buildXlsx(){
   // ── Open ARs ──────────────────────────────────────────────
   (function(){
     var ars=Array.isArray(appState.openARs)?appState.openARs:Object.values(appState.openARs||{});
-    var CW2=[{wch:40},{wch:12},{wch:14},{wch:14},{wch:20},{wch:30}];
+    var CW2=[{wch:44},{wch:12},{wch:12},{wch:14},{wch:14},{wch:30}];
     var rows=[];
-    rows.push([mkHdr('Open Action Items',6,GRN,WHT)]);
-    rows.push([mkHdr('Exported: '+xts(),6,DRK,GRN)]);
-    rows.push([mkC('Title',xf(GRN,BLK,1)),mkC('Status',xf(GRN,BLK,1)),mkC('Priority',xf(GRN,BLK,1)),mkC('Owner',xf(GRN,BLK,1)),mkC('Engineer',xf(GRN,BLK,1)),mkC('Note',xf(GRN,BLK,1))]);
+    rows.push(titleRow('Open Action Items — '+xts(),6));
+    rows.push(hRow(['Title','Status','Priority','Owner','Engineer','Note']));
     ars.forEach(function(ar){
-      rows.push([mkC(ar.title||''),mkC(ar.status||''),mkC(ar.priority||''),mkC(ar.owner||''),mkC(ar.engineer||''),mkC(ar.note||'')]);
+      rows.push(sRow2([ar.title||'',ar.status||'',ar.priority||'',ar.owner||'',ar.engineer||'',ar.note||'']));
     });
     sNames.push('Open ARs');sXmls.push(shXml(rows,CW2));
   })();
@@ -2326,19 +2324,19 @@ function _buildXlsx(){
     var mts=Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||{});
     var CW2=[{wch:28},{wch:16},{wch:14},{wch:14},{wch:50},{wch:16},{wch:30}];
     var rows=[];
-    rows.push([mkHdr('Machine Training Plans',7,GRN,WHT)]);
-    rows.push([mkHdr('Exported: '+xts(),7,DRK,GRN)]);
-    rows.push([mkC('Machine',xf(GRN,BLK,1)),mkC('Site',xf(GRN,BLK,1)),mkC('From',xf(GRN,BLK,1)),mkC('To',xf(GRN,BLK,1)),mkC('Plan',xf(GRN,BLK,1)),mkC('Attendee',xf(GRN,BLK,1)),mkC('Status / Feedback',xf(GRN,BLK,1))]);
+    rows.push(titleRow('Machine Training Plans — '+xts(),7));
+    rows.push(hRow(['Machine','Site','From','To','Plan','Attendee','Status / Feedback']));
     mts.forEach(function(mt){
       var atts=mt.attendees_list||[];
-      var firstRow=true;
+      var plan=(mt.plan||'').replace(/\n/g,' | ');
       if(atts.length===0){
-        rows.push([mkC(mt.machine||''),mkC(mt.site||''),mkC(mt.dateFrom||''),mkC(mt.dateTo||''),mkC((mt.plan||'').replace(/\n/g,' | ')),mkC('—'),mkC('')]);
+        rows.push(sRow2([mt.machine||'',mt.site||'',mt.dateFrom||'',mt.dateTo||'',plan,'—','']));
       } else {
+        var first=true;
         atts.forEach(function(name){
           var att=(mt.attendees||{})[name]||{};
-          rows.push([mkC(firstRow?mt.machine||'':''),mkC(firstRow?mt.site||'':''),mkC(firstRow?mt.dateFrom||'':''),mkC(firstRow?mt.dateTo||'':''),mkC(firstRow?(mt.plan||'').replace(/\n/g,' | '):''),mkC(name),mkC((att.status||'')+(att.feedback?' — '+att.feedback:''))]);
-          firstRow=false;
+          rows.push(sRow2([first?mt.machine||'':'',first?mt.site||'':'',first?mt.dateFrom||'':'',first?mt.dateTo||'':'',first?plan:'',name,(att.status||'')+(att.feedback?' — '+att.feedback:'')]));
+          first=false;
         });
       }
     });
