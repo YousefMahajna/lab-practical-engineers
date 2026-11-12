@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='9.11.26i-RESTORE';
+var BUILD_TS='10.11.26b';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2660,25 +2660,45 @@ function loadState(callback){
 
   // Step 2: Try to merge Firebase progress data on top
   if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length&&FIREBASE_READY&&firebaseDB){
-    // RESTORE MODE: embedded data takes priority over Firebase (data was corrupted by engineer overwrite)
-    var RESTORE_MODE=true;
-    if(RESTORE_MODE){
-      try{
-        var _emElR=document.getElementById('app-data');
-        if(_emElR){
-          var _restored=JSON.parse(_emElR.textContent.trim());
-          Object.assign(appState,_restored);
-          _guardState();
-          // Push restored data to Firebase immediately
-          firebaseDB.ref("appState").set(appState).then(function(){
-            console.log('Restore complete: data pushed to Firebase');
-          });
-          if(callback)callback();
-          return;
-        }
-      }catch(e){console.error('Restore failed:',e);}
-    }
     firebaseDB.ref("appState").once("value").then(function(snap){
+      // Smart restore: if Firebase data looks corrupted/empty, restore from embedded
+      function _countData(d){
+        if(!d)return 0;
+        var score=0;
+        var sess=d.sessions?Object.values(d.sessions):[];
+        score+=sess.length*10;
+        var hpct=d.haytam&&d.haytam.pct?Object.keys(d.haytam.pct).length:0;
+        score+=hpct;
+        var spct=d.samer&&d.samer.pct?Object.keys(d.samer.pct).length:0;
+        score+=spct;
+        var mpct=d.michael&&d.michael.pct?Object.keys(d.michael.pct).length:0;
+        score+=mpct;
+        var mach=d.machines?Object.values(d.machines).length:0;
+        score+=mach*2;
+        return score;
+      }
+      var fbData=snap.val();
+      var fbScore=_countData(fbData);
+      // Load localStorage backup
+      var lsData=null;try{var lsRaw=localStorage.getItem(SK);if(lsRaw)lsData=JSON.parse(lsRaw);}catch(e){}
+      var lsScore=_countData(lsData);
+      // Load embedded backup
+      var emData=null;try{var emEl=document.getElementById('app-data');if(emEl)emData=JSON.parse(emEl.textContent.trim());}catch(e){}
+      var emScore=_countData(emData);
+      console.log('[DataLoad] Firebase:'+fbScore+' localStorage:'+lsScore+' embedded:'+emScore);
+      // Use the richest source
+      var bestData=fbData;var bestScore=fbScore;var bestSrc='Firebase';
+      if(lsScore>bestScore){bestData=lsData;bestScore=lsScore;bestSrc='localStorage';}
+      if(emScore>bestScore){bestData=emData;bestScore=emScore;bestSrc='embedded';}
+      console.log('[DataLoad] Using: '+bestSrc);
+      if(bestSrc!=='Firebase'&&bestData){
+        Object.assign(appState,bestData);
+        _guardState();
+        // Push best data to Firebase to fix it
+        firebaseDB.ref("appState").update(appState);
+        if(callback)callback();
+        return;
+      }
       var fbData=snap.val();
       if(fbData&&Object.keys(fbData).length>2){
         // Merge: use embedded as base, overlay Firebase progress fields
@@ -2783,8 +2803,8 @@ function saveStateNow(){
         var ls2=document.getElementById("ls");if(ls2){ls2.textContent="";ls2.style.color="";}
         savePromise=Promise.resolve();
       } else {
-        // Manager saves everything
-        savePromise=saveRef.set(appState);
+        // Manager: use update not set, to avoid full overwrite race conditions
+        savePromise=saveRef.update(appState);
       }
       savePromise.then(function(){
         try{var l=document.getElementById("ls");if(l){l.textContent="Saved "+new Date().toLocaleTimeString();l.style.color="#76b900";
