@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='10.11.26b';
+var BUILD_TS='10.11.26c';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2680,7 +2680,11 @@ function loadState(callback){
       var fbData=snap.val();
       var fbScore=_countData(fbData);
       // Load localStorage backup
-      var lsData=null;try{var lsRaw=localStorage.getItem(SK);if(lsRaw)lsData=JSON.parse(lsRaw);}catch(e){}
+      var lsData=null;
+      try{
+        var lsRaw=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk')||sessionStorage.getItem(SK+'_session');
+        if(lsRaw)lsData=JSON.parse(lsRaw);
+      }catch(e){}
       var lsScore=_countData(lsData);
       // Load embedded backup
       var emData=null;try{var emEl=document.getElementById('app-data');if(emEl)emData=JSON.parse(emEl.textContent.trim());}catch(e){}
@@ -2780,7 +2784,10 @@ function saveStateNow(){
   _persistCustomItems();
   try{
     var data=JSON.stringify(appState);
+    // Triple backup: localStorage + embedded DOM + sessionStorage
     try{localStorage.setItem(SK,data);}catch(e){}
+    try{sessionStorage.setItem(SK+'_session',data);}catch(e){}
+    try{localStorage.setItem(SK+'_bk',data);}catch(e){} // second localStorage key
     var em=document.getElementById("app-data");if(em)em.textContent=data;
     if(FIREBASE_READY&&firebaseDB){
       var ls=document.getElementById("ls");if(ls){ls.textContent="Saving...";ls.style.color="#f59e0b";}
