@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26f';
+var BUILD_TS='13.11.26g';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2235,7 +2235,7 @@ function _buildXlsx(){
   // ── Sessions ──────────────────────────────────────────────
   try{(function(){
     var sessions=Array.isArray(appState.sessions)?appState.sessions:Object.values(appState.sessions||{});
-    var CW2=[{wch:40},{wch:20},{wch:14},{wch:10},{wch:40},{wch:30},{wch:10}];
+    var CW2=[40,20,14,10,40,30,10];
     var rows=[];
     rows.push(titleRow('Lab Sessions — '+xts(),7));
     rows.push(hRow(['Title','Presenter','Date','Duration','Agenda','Attendees','Done']));
@@ -2248,7 +2248,7 @@ function _buildXlsx(){
   // ── My Tasks (Yousef) ──────────────────────────────────────
   try{(function(){
     var tasks=Array.isArray(appState.myTasks&&appState.myTasks.items)?appState.myTasks.items:Object.values((appState.myTasks&&appState.myTasks.items)||{});
-    var CW2=[{wch:12},{wch:40},{wch:20},{wch:14},{wch:40},{wch:40}];
+    var CW2=[12,40,20,14,40,40];
     var rows=[];
     rows.push(titleRow('My Tasks — Yousef — '+xts(),6));
     rows.push(hRow(['Year','Title','Category','Date','Details','Impact']));
@@ -2262,7 +2262,7 @@ function _buildXlsx(){
   try{(function(){
     var vacs=appState.vacations||{};
     var pids=['yousef','haytam','garold','michael','samer','amir'];
-    var CW2=[{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:16}];
+    var CW2=[14,14,14,14,14,14,14,16];
     var rows=[];
     rows.push(titleRow('Team Vacations — '+xts(),8));
     rows.push(hRow(['Date','Yousef','Haytam','Garold','Michael','Samer','Amir','Type']));
@@ -2290,7 +2290,7 @@ function _buildXlsx(){
     var sc=appState.machineScores||{};
     var gl=appState.machineGoals||{};
     var pids=['haytam','garold','michael','samer','amir'];
-    var CW2=[{wch:24},{wch:14},{wch:16},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}];
+    var CW2=[24,14,16,12,12,12,12,12,12,12,12,12,12];
     var rows=[];
     rows.push(titleRow('Lab Machines — '+xts(),3+pids.length*2));
     var hdrs=['Machine','Owner','Category'];
@@ -2309,7 +2309,7 @@ function _buildXlsx(){
   // ── Open ARs ──────────────────────────────────────────────
   try{(function(){
     var ars=Array.isArray(appState.openARs)?appState.openARs:Object.values(appState.openARs||{});
-    var CW2=[{wch:44},{wch:12},{wch:12},{wch:14},{wch:14},{wch:30}];
+    var CW2=[44,12,12,14,14,30];
     var rows=[];
     rows.push(titleRow('Open Action Items — '+xts(),6));
     rows.push(hRow(['Title','Status','Priority','Owner','Engineer','Note']));
@@ -2322,7 +2322,7 @@ function _buildXlsx(){
   // ── Machine Training ──────────────────────────────────────
   try{(function(){
     var mts=Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||{});
-    var CW2=[{wch:28},{wch:16},{wch:14},{wch:14},{wch:50},{wch:16},{wch:30}];
+    var CW2=[28,16,14,14,50,16,30];
     var rows=[];
     rows.push(titleRow('Machine Training Plans — '+xts(),7));
     rows.push(hRow(['Machine','Site','From','To','Plan','Attendee','Status / Feedback']));
