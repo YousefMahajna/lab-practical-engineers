@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26g';
+var BUILD_TS='13.11.26h';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2322,23 +2322,39 @@ function _buildXlsx(){
   // ── Machine Training ──────────────────────────────────────
   try{(function(){
     var mts=Array.isArray(appState.machTraining)?appState.machTraining:Object.values(appState.machTraining||{});
-    var CW2=[28,16,14,14,50,16,30];
+    var CW2=[32,16,13,13,14,14,55];
     var rows=[];
     rows.push(titleRow('Machine Training Plans — '+xts(),7));
-    rows.push(hRow(['Machine','Site','From','To','Plan','Attendee','Status / Feedback']));
     mts.forEach(function(mt){
+      // Training header row
+      rows.push({cells:[
+        cS(mt.machine||'',ST.secH),cS(mt.site||'',ST.secH),
+        cS(mt.dateFrom||'',ST.secH),cS(mt.dateTo||'',ST.secH),
+        cS('Attendees: '+(mt.attendees_list||[]).join(', '),ST.secH),
+        cS('',ST.secH),cS('',ST.secH)
+      ],h:18});
+      // Column headers
+      rows.push(hRow(['Machine','Site','From','To','Attendee','Status','Feedback']));
+      // Attendee rows
       var atts=mt.attendees_list||[];
-      var plan=(mt.plan||'').replace(/\n/g,' | ');
       if(atts.length===0){
-        rows.push(sRow2([mt.machine||'',mt.site||'',mt.dateFrom||'',mt.dateTo||'',plan,'—','']));
+        rows.push(sRow2([mt.machine||'',mt.site||'','','','—','','']));
       } else {
-        var first=true;
         atts.forEach(function(name){
           var att=(mt.attendees||{})[name]||{};
-          rows.push(sRow2([first?mt.machine||'':'',first?mt.site||'':'',first?mt.dateFrom||'':'',first?mt.dateTo||'':'',first?plan:'',name,(att.status||'')+(att.feedback?' — '+att.feedback:'')]));
-          first=false;
+          rows.push(sRow2([mt.machine||'',mt.site||'',mt.dateFrom||'',mt.dateTo||'',name,att.status||'',att.feedback||'']));
         });
       }
+      // Training plan section
+      rows.push({cells:[cS('Training Plan:',ST.mgrN),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank)],h:16});
+      var planLines=(mt.plan||'').split('\n');
+      planLines.forEach(function(line){
+        if(line.trim()){
+          rows.push({cells:[cS('',ST.blank),cS(line.trim(),ST.note),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank)],h:15});
+        }
+      });
+      // Spacer
+      rows.push({cells:[cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank)],h:8});
     });
     sNames.push('Machine Training');sXmls.push(shXml(rows,CW2));
   })();}catch(e){console.error('MachTraining sheet:',e);}
