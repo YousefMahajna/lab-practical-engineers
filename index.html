@@ -459,7 +459,7 @@ Then to send Dan Torjman a status email.</textarea></td></tr><tr class="ar done"
 Lid legs BLT : 2542F300100714 ( , , , ) , 2542F300100278 ( , , , )
 MB to PCBA gap : 2542F300100714 ( , ) , 2542F300100278 ( , )</textarea></td><td><textarea rows="2" placeholder="Comments…" style="width:100%" onchange="saveXS('amir',0,'comment',this.value)"></textarea></td><td><button class="xs-del" onclick="deleteXSRow('amir',0)" title="Delete row">✕</button></td></tr><tr id="xs-row-amir-1"><td style="padding:4px 5px;white-space:nowrap;width:1%"><input type="date" value="2026-09-09" onchange="saveXS('amir',1,'date',this.value)" style="cursor:pointer;color-scheme:dark;background:#1a1a1a;border:1px solid #76b900;border-radius:4px;padding:4px 5px;color:#f0f0f0;font-size:11px;width:1px;min-width:100px"></td><td><textarea rows="2" placeholder="Cross-section description…" style="min-height:70px;width:100%" onchange="saveXS('amir',1,'desc',this.value)">Shredder x-section - CDR lid assembly 
 Loctite Ablestik 84-1LMISR4
-TIM1 BLT</textarea></td><td style="white-space:normal"><input placeholder="Product" style="width:100%" value="Shredder" onchange="saveXS('amir',1,'product',this.value)"></td><td style="white-space:normal"><input placeholder="Site" style="width:100%" value="Process Lab" onchange="saveXS('amir',1,'fab',this.value)"></td><td style="white-space:normal"><input placeholder="Owner" style="width:100%" value="Yousef " onchange="saveXS('amir',1,'owner',this.value)"></td><td><textarea rows="2" placeholder="Findings…" style="min-height:70px;width:100%" onchange="saveXS('amir',1,'finding',this.value)"></textarea></td><td><textarea rows="2" placeholder="Comments…" style="width:100%" onchange="saveXS('amir',1,'comment',this.value)"></textarea></td><td><button class="xs-del" onclick="deleteXSRow('amir',1)" title="Delete row">✕</button></td></tr></tbody></table></div><button class="xs-add-btn" onclick="addXSectionRow('amir')" style="margin-top:10px">+ Add Row</button></div><div class="ip" id="ip-amir-focal2026"><div style="background:var(--acb);border:1px solid var(--ace);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--ac)">📋 <strong>2026 Annual Focal</strong> — Year-end review for 2026.</div><div class="fb"><h4>✅ Key Contributions &amp; Strengths</h4><div contenteditable="true" data-pid="amir" data-field="strengths" onblur="saveFocal2026(this)" style="min-height:60px;outline:none;color:var(--tx);font-size:13px;line-height:1.7"></div></div><div class="fb"><h4>🔧 Opportunities for Development &amp; Growth</h4><div contenteditable="true" data-pid="amir" data-field="growth" onblur="saveFocal2026(this)" style="min-height:60px;outline:none;color:var(--tx);font-size:13px;line-height:1.7"></div></div><div class="fb"><h4>🎯 Future Deliverables &amp; Goals</h4><div contenteditable="true" data-pid="amir" data-field="goals" onblur="saveFocal2026(this)" style="min-height:60px;outline:none;color:var(--tx);font-size:13px;line-height:1.7"></div></div></div></div><div class="panel" id="panel-calendar"><div class="ph"><h2>🗓 Team Vacation Calendar</h2><p>Aug 2026 — Dec 2028</p></div><div class="cbn"><strong>Shared team calendar</strong>Click a day to mark vacation or business trip. Use range picker for multiple days. ● Vacation  ▪ Business Trip</div><div class="rpk"><span style="font-size:12px;font-weight:600;color:var(--txs)">Range:</span><select id="rp-person-calendar" class="ts"><option value="yousef">Yousef (Mgr)</option><option value="haytam">Haytam</option><option value="garold">Garold</option><option value="michael">Michael</option><option value="samer">Samer</option><option value="amir">Amir</option></select><input type="date" id="rp-start-calendar" class="di"><span style="font-size:12px;color:var(--txm)">to</span><input type="date" id="rp-end-calendar" class="di"><select id="rp-type-calendar" class="ts"><option value="vac">🏖 Vacation</option><option value="trip">✈️ Business Trip</option></select><button class="rba" onclick="applyRange('calendar')">Apply</button><button class="rba clr" onclick="clearRange('calendar')">Clear</button></div><div id="cal-main"></div></div><div class="panel" id="panel-yousef"><div class="ph"><h2>Yousef — My Vacation</h2><p>Your personal calendar view</p></div><div class="cbn"><strong>📅 Your days only</strong>Open Team Vacations tab to see the full team.</div><div class="rpk"><span style="font-size:12px;font-weight:600;color:var(--txs)">Range:</span><input type="date" id="rp-start-yousef" class="di"><span style="font-size:12px;color:var(--txm)">to</span><input type="date" id="rp-end-yousef" class="di"><select id="rp-type-yousef" class="ts"><option value="vac">🏖 Vacation</option><option value="trip">✈️ Business Trip</option></select><button class="rba" onclick="applyRange('yousef')">Apply</button><button class="rba clr" onclick="clearRange('yousef')">Clear</button></div><div id="mini-cal-yousef"></div></div><div class="panel" id="panel-machines"><div class="panel" id="panel-users"><div class="ph"><h2>🔑 Users &amp; Passwords</h2><p>Only visible to you — change any password instantly</p></div><div id="users-list"></div></div><div class="panel" id="panel-analysis"><div class="ph"><h2>📊 Team Performance Analysis</h2><p>Visual comparisons across engineers — select a chart to explore</p></div><div id="analysis-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"><button class="an-tab active" onclick="showAnalysis('goals',this)">✅ Goals Progress</button><button class="an-tab" onclick="showAnalysis('machines',this)">⚙️ Machine Levels</button><button class="an-tab" onclick="showAnalysis('machine_goals',this)">🎯 Level vs Goal</button><button class="an-tab" onclick="showAnalysis('training',this)">🎓 Amir Training</button><button class="an-tab" onclick="showAnalysis('radar',this)">🕸 Skills Radar</button><button class="an-tab" onclick="showAnalysis('heatmap',this)">🗂 Machine Heatmap</button></div><div id="analysis-content"></div></div><div class="panel" id="panel-openars"><div class="ph"><h2>⚡ Open Action Items</h2><p>Tasks blocking engineer progress — track who needs to act</p></div><div id="openars-content"></div></div>
+TIM1 BLT</textarea></td><td style="white-space:normal"><input placeholder="Product" style="width:100%" value="Shredder" onchange="saveXS('amir',1,'product',this.value)"></td><td style="white-space:normal"><input placeholder="Site" style="width:100%" value="Process Lab" onchange="saveXS('amir',1,'fab',this.value)"></td><td style="white-space:normal"><input placeholder="Owner" style="width:100%" value="Yousef " onchange="saveXS('amir',1,'owner',this.value)"></td><td><textarea rows="2" placeholder="Findings…" style="min-height:70px;width:100%" onchange="saveXS('amir',1,'finding',this.value)"></textarea></td><td><textarea rows="2" placeholder="Comments…" style="width:100%" onchange="saveXS('amir',1,'comment',this.value)"></textarea></td><td><button class="xs-del" onclick="deleteXSRow('amir',1)" title="Delete row">✕</button></td></tr></tbody></table></div><button class="xs-add-btn" onclick="addXSectionRow('amir')" style="margin-top:10px">+ Add Row</button></div><div class="ip" id="ip-amir-focal2026"><div style="background:var(--acb);border:1px solid var(--ace);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--ac)">📋 <strong>2026 Annual Focal</strong> — Year-end review for 2026.</div><div class="fb"><h4>✅ Key Contributions &amp; Strengths</h4><div contenteditable="true" data-pid="amir" data-field="strengths" onblur="saveFocal2026(this)" style="min-height:60px;outline:none;color:var(--tx);font-size:13px;line-height:1.7"></div></div><div class="fb"><h4>🔧 Opportunities for Development &amp; Growth</h4><div contenteditable="true" data-pid="amir" data-field="growth" onblur="saveFocal2026(this)" style="min-height:60px;outline:none;color:var(--tx);font-size:13px;line-height:1.7"></div></div><div class="fb"><h4>🎯 Future Deliverables &amp; Goals</h4><div contenteditable="true" data-pid="amir" data-field="goals" onblur="saveFocal2026(this)" style="min-height:60px;outline:none;color:var(--tx);font-size:13px;line-height:1.7"></div></div></div></div><div class="panel" id="panel-calendar"><div class="ph" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px"><div><h2>🗓 Team Vacation Calendar</h2><p>Aug 2026 — Dec 2028</p></div><button id="sync-outlook-btn" onclick="syncVacationsFromOutlook()" style="background:var(--acb);border:1px solid var(--ace);border-radius:6px;padding:8px 16px;color:var(--ac);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">🔄 Sync from Outlook</button></div><div class="cbn"><strong>Shared team calendar</strong>Click a day to mark vacation or business trip. Use range picker for multiple days. ● Vacation  ▪ Business Trip</div><div class="rpk"><span style="font-size:12px;font-weight:600;color:var(--txs)">Range:</span><select id="rp-person-calendar" class="ts"><option value="yousef">Yousef (Mgr)</option><option value="haytam">Haytam</option><option value="garold">Garold</option><option value="michael">Michael</option><option value="samer">Samer</option><option value="amir">Amir</option></select><input type="date" id="rp-start-calendar" class="di"><span style="font-size:12px;color:var(--txm)">to</span><input type="date" id="rp-end-calendar" class="di"><select id="rp-type-calendar" class="ts"><option value="vac">🏖 Vacation</option><option value="trip">✈️ Business Trip</option></select><button class="rba" onclick="applyRange('calendar')">Apply</button><button class="rba clr" onclick="clearRange('calendar')">Clear</button></div><div id="cal-main"></div></div><div class="panel" id="panel-yousef"><div class="ph"><h2>Yousef — My Vacation</h2><p>Your personal calendar view</p></div><div class="cbn"><strong>📅 Your days only</strong>Open Team Vacations tab to see the full team.</div><div class="rpk"><span style="font-size:12px;font-weight:600;color:var(--txs)">Range:</span><input type="date" id="rp-start-yousef" class="di"><span style="font-size:12px;color:var(--txm)">to</span><input type="date" id="rp-end-yousef" class="di"><select id="rp-type-yousef" class="ts"><option value="vac">🏖 Vacation</option><option value="trip">✈️ Business Trip</option></select><button class="rba" onclick="applyRange('yousef')">Apply</button><button class="rba clr" onclick="clearRange('yousef')">Clear</button></div><div id="mini-cal-yousef"></div></div><div class="panel" id="panel-machines"><div class="panel" id="panel-users"><div class="ph"><h2>🔑 Users &amp; Passwords</h2><p>Only visible to you — change any password instantly</p></div><div id="users-list"></div></div><div class="panel" id="panel-analysis"><div class="ph"><h2>📊 Team Performance Analysis</h2><p>Visual comparisons across engineers — select a chart to explore</p></div><div id="analysis-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px"><button class="an-tab active" onclick="showAnalysis('goals',this)">✅ Goals Progress</button><button class="an-tab" onclick="showAnalysis('machines',this)">⚙️ Machine Levels</button><button class="an-tab" onclick="showAnalysis('machine_goals',this)">🎯 Level vs Goal</button><button class="an-tab" onclick="showAnalysis('training',this)">🎓 Amir Training</button><button class="an-tab" onclick="showAnalysis('radar',this)">🕸 Skills Radar</button><button class="an-tab" onclick="showAnalysis('heatmap',this)">🗂 Machine Heatmap</button></div><div id="analysis-content"></div></div><div class="panel" id="panel-openars"><div class="ph"><h2>⚡ Open Action Items</h2><p>Tasks blocking engineer progress — track who needs to act</p></div><div id="openars-content"></div></div>
 </main>
 </div>
 
@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='10.11.26d';
+var BUILD_TS='13.11.26b';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -4961,6 +4961,86 @@ function saveMachAttFeedback(tid,name,val){
   if(!tr.attendees[name])tr.attendees[name]={};
   tr.attendees[name].feedback=val;
   saveState();
+}
+
+// ── Outlook Vacation Sync ─────────────────────────────
+var TEAM_EMAILS={
+  yousef:'ymahajna@nvidia.com',
+  haytam:'hmasarwi@nvidia.com',
+  garold:'gkupershmid@nvidia.com',
+  michael:'msklyarski@nvidia.com',
+  samer:'skheir@nvidia.com',
+  amir:'adiab@nvidia.com'
+};
+
+function syncVacationsFromOutlook(){
+  var btn=document.getElementById('sync-outlook-btn');
+  if(btn){btn.textContent='⏳ Syncing...';btn.disabled=true;}
+
+  var PIDS=['yousef','haytam','garold','michael','samer','amir'];
+  var now=new Date();
+  var yearStart=new Date(now.getFullYear(),0,1).toISOString().split('T')[0];
+  var yearEnd=new Date(now.getFullYear(),11,31).toISOString().split('T')[0];
+
+  var completed=0;
+  var found=0;
+  var errors=[];
+
+  PIDS.forEach(function(pid){
+    var email=TEAM_EMAILS[pid];
+    // Call Microsoft 365 MCP via fetch to the Anthropic API
+    fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        system:'You are a vacation data extractor. Given calendar events JSON, return ONLY a JSON array of date strings (YYYY-MM-DD) that are vacation or OOO days for the person. No other text.',
+        messages:[{role:'user',content:'Search the calendar for '+pid+' ('+email+') between '+yearStart+' and '+yearEnd+'. Find ALL absence events including: Vacation, OOO, Out of Office, Sick, Child Sick, Personal Day, BT (Business Trip), Day Off, Holiday, Leave, חופשה, מחלה, יום חופש, נסיעת עסקים. Return ONLY a JSON object with two arrays: {"vac":["YYYY-MM-DD",...],"trip":["YYYY-MM-DD",...]} where vac is vacation/sick/OOO/personal and trip is business trips only. No other text.'}],
+        mcp_servers:[{type:'url',url:'https://microsoft365.mcp.claude.com/mcp',name:'microsoft365'}]
+      })
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      try{
+        var text=d.content.filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
+        var clean=text.replace(/```json|```/g,'').trim();
+        var parsed=JSON.parse(clean);
+        // Handle both {vac:[],trip:[]} and plain array formats
+        var vacDates=Array.isArray(parsed)?parsed:(parsed.vac||[]);
+        var tripDates=Array.isArray(parsed)?[]:(parsed.trip||[]);
+        vacDates.forEach(function(dt){
+          if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
+          if(appState.vacations[dt].vac.indexOf(pid)<0){appState.vacations[dt].vac.push(pid);found++;}
+        });
+        tripDates.forEach(function(dt){
+          if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
+          if(appState.vacations[dt].trip.indexOf(pid)<0){appState.vacations[dt].trip.push(pid);found++;}
+        });
+      }catch(e){errors.push(pid);}
+      completed++;
+      if(completed===PIDS.length){_syncDone(btn,found,errors);}
+    })
+    .catch(function(){
+      errors.push(pid);completed++;
+      if(completed===PIDS.length){_syncDone(btn,found,errors);}
+    });
+  });
+}
+
+function _syncDone(btn,found,errors){
+  if(found>0){saveState();renderCalendar('cal-main');}
+  if(btn){
+    btn.disabled=false;
+    if(found>0){
+      btn.textContent='✅ Synced '+found+' days';
+      setTimeout(function(){btn.textContent='🔄 Sync from Outlook';},3000);
+    } else {
+      btn.textContent='⚠️ No data — try again';
+      setTimeout(function(){btn.textContent='🔄 Sync from Outlook';},4000);
+    }
+  }
+  if(errors.length>0)console.warn('Sync failed for:',errors);
 }
 
 function renderMachines(){
