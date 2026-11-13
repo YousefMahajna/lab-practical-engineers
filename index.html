@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26i';
+var BUILD_TS='14.11.26j';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2452,11 +2452,16 @@ function importFromFullExcel(input){
                     if(c0.startsWith('Manager Notes')&&curMonth&&!c0.includes('Mgr Notes on')){if(!ps.monthSummary)ps.monthSummary={};ps.monthSummary[curMonth]=String(row[1]||'').trim();return;}
                     if(c0.startsWith('Amir Notes')&&curMonth){if(!ps.amirMonthNote)ps.amirMonthNote={};ps.amirMonthNote[curMonth]=String(row[1]||'').trim();return;}
                     if(c0.startsWith('Mgr Notes on Amir')&&curMonth){if(!ps.mgrMonthNotes)ps.mgrMonthNotes={};ps.mgrMonthNotes[curMonth]=String(row[1]||'').trim();return;}
+                    // Amir export cols: A=Category, B=Task/Training, C=Mentor, D=Objective, E=%, F=Done, G=Status, H=Note
                     var taskTxt=String(row[1]||'').trim().toLowerCase();
                     var id=taskIdx[taskTxt];if(!id)return;
-                    if(!ps.pct)ps.pct={};ps.pct[id]=parseInt(row[3])||0;
-                    if(!ps.items)ps.items={};ps.items[id]=String(row[4]).trim()==='V';
-                    if(!ps.notes)ps.notes={};ps.notes[id]=String(row[6]||'').trim();
+                    var amirPct=parseInt(row[4])||0;
+                    var amirDone=String(row[5]||'').trim()==='V';
+                    if(!ps.pct)ps.pct={};ps.pct[id]=amirPct;
+                    if(!ps.items)ps.items={};ps.items[id]=amirDone;
+                    if(!ps.status)ps.status={};if(row[6])ps.status[id]=String(row[6]).trim();
+                    if(!ps.notes)ps.notes={};if(row[7])ps.notes[id]=String(row[7]||'').trim();
+                    console.log('[Import] amir '+id+' pct:'+amirPct+' done:'+amirDone);
                     imported++;
                   });
                 } else {
