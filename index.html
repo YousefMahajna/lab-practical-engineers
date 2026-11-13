@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26j';
+var BUILD_TS='13.11.26k';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2406,7 +2406,7 @@ function importFromFullExcel(input){
             var shList=[];
             (wbXml.match(/<sheet[^/]*/g)||[]).forEach(function(m){var nm=(m.match(/name="([^"]*)"/))||[];var rid=(m.match(/r:id="([^"]*)"/))||[];if(nm[1]&&rid[1])shList.push({name:nm[1],rid:rid[1]});});
             var ridPath={};
-            (wbRels.match(/<Relationship[^/]*/g)||[]).forEach(function(m){var id=(m.match(/Id="([^"]*)"/))||[];var tgt=(m.match(/Target="([^"]*)"/))||[];if(id[1]&&tgt[1])ridPath[id[1]]='xl/'+tgt[1];});
+            (wbRels.match(/<Relationship[^>]*/g)||[]).forEach(function(m){var id=(m.match(/Id="([^"]*)"/))||[];var tgt=(m.match(/Target="([^"]*)"/))||[];if(id[1]&&tgt[1])ridPath[id[1]]='xl/'+tgt[1];});
             var shProm=shList.map(function(sh){var p=ridPath[sh.rid];if(!p)return Promise.resolve(null);return z.file(p).async('string').then(function(xml){return{name:sh.name,xml:xml};});});
             Promise.all(shProm).then(function(sheets){
               var imported=0;
