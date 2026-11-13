@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26z';
+var BUILD_TS='14.11.26';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2610,23 +2610,27 @@ function importFromFullExcel(input){
                 sessionStorage.setItem(SK+'_session',fullSave);
               }catch(e){}
               _guardState();
+              console.log('[Import] FIREBASE_READY='+FIREBASE_READY+' firebaseDB='+!!firebaseDB+' imported='+imported);
+              // Always save to localStorage first
+              try{var fs=JSON.stringify(appState);localStorage.setItem(SK,fs);localStorage.setItem(SK+'_bk',fs);}catch(e){}
               if(FIREBASE_READY&&firebaseDB){
-                window._importLock=true; // block live listener
+                window._importLock=true;
                 var fbPayload=Object.assign({},appState);
                 delete fbPayload.sessions;
                 firebaseDB.ref('appState').set(fbPayload).then(function(){
-                  console.log('[Import] Firebase save OK - reloading page');
-                  alert('Imported successfully! '+imported+' items updated.\nPage will reload to show changes.');
+                  console.log('[Import] Firebase OK - reloading');
+                  alert('Imported! '+imported+' items updated. Page reloading...');
                   location.reload();
                 }).catch(function(e){
                   window._importLock=false;
-                  console.error('[Import] Firebase error:',e);
-                  render();applyUserSession();
-                  alert('Import failed: '+e.message);
+                  console.error('[Import] Firebase error:',e.message);
+                  alert('Import saved locally. Firebase error: '+e.message+'\nReloading...');
+                  location.reload();
                 });
               } else {
-                render();applyUserSession();
-                alert('Imported successfully! '+imported+' items updated.');
+                console.warn('[Import] Firebase not ready - localStorage only');
+                alert('Imported '+imported+' items (offline mode). Reloading...');
+                location.reload();
               }
             });
           });
