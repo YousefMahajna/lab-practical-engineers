@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26y';
+var BUILD_TS='13.11.26z';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2615,16 +2615,14 @@ function importFromFullExcel(input){
                 var fbPayload=Object.assign({},appState);
                 delete fbPayload.sessions;
                 firebaseDB.ref('appState').set(fbPayload).then(function(){
-                  console.log('[Import] Firebase save OK');
-                  window._lt=Date.now(); // suppress live listener for 10s
-                  setTimeout(function(){window._importLock=false;window._lt=Date.now();},10000);
-                  render();applyUserSession();
-                  alert('Imported successfully! '+imported+' items updated.');
+                  console.log('[Import] Firebase save OK - reloading page');
+                  alert('Imported successfully! '+imported+' items updated.\nPage will reload to show changes.');
+                  location.reload();
                 }).catch(function(e){
                   window._importLock=false;
                   console.error('[Import] Firebase error:',e);
                   render();applyUserSession();
-                  alert('Imported: '+imported+' items. Firebase error: '+e.message);
+                  alert('Import failed: '+e.message);
                 });
               } else {
                 render();applyUserSession();
