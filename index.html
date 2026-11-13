@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26s';
+var BUILD_TS='13.11.26t';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2494,7 +2494,6 @@ function importFromFullExcel(input){
                     rowData2.push(cells);
                   });
                   rowData2.forEach(function(row,ri){
-                    // Skip title rows, header row
                     if(ri<2)return;
                     if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0)return;
                     if(!row[0].trim())return;
@@ -2512,6 +2511,63 @@ function importFromFullExcel(input){
                     imported++;
                   });
                   if(newSessions.length>0)appState.sessions=newSessions;
+                }
+                if(name==='machine training'&&sh.xml.indexOf('Machine Training')>=0){
+                  // Export cols: A=Machine, B=Site, C=From, D=To, E=Attendee, F=Status, G=Feedback
+                  var rowData4=[];
+                  (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
+                    var cells=[];
+                    (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
+                      var t=(cXml.match(/t="([^"]*)"/))||[];
+                      var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
+                      var r=(cXml.match(/r="([A-Z]+)/))||[];
+                      var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
+                      var val='';if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
+                      while(cells.length<=col)cells.push('');cells[col]=val;
+                    });
+                    rowData4.push(cells);
+                  });
+                  // Build training plans from rows
+                  var newMachTraining=[];
+                  var curPlan=null;
+                  rowData4.forEach(function(row){
+                    if(!row[0]&&!row[1])return;
+                    var c0=String(row[0]||'').trim();
+                    var c1=String(row[1]||'').trim();
+                    if(c0==='Machine'||c0.indexOf('Machine Training')>=0||c0==='Training Plan:')return;
+                    // New training block when machine name appears in col A
+                    if(c0&&c0!==''&&c1!=='' && (row[2]||row[3])){
+                      // This is an attendee row: A=machine, B=site, C=from, D=to, E=attendee, F=status, G=feedback
+                      var machineName=c0;
+                      var existing=newMachTraining.find(function(m){return m.machine===machineName;});
+                      if(!existing){
+                        existing={id:'mt_imp_'+Date.now()+'_'+newMachTraining.length,machine:machineName,site:row[1]||'',dateFrom:row[2]||'',dateTo:row[3]||'',plan:'',attendees_list:[],attendees:{}};
+                        newMachTraining.push(existing);
+                      }
+                      var attName=String(row[4]||'').trim();
+                      if(attName&&attName!=='—'){
+                        if(existing.attendees_list.indexOf(attName)<0)existing.attendees_list.push(attName);
+                        existing.attendees[attName]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
+                      }
+                      imported++;
+                    } else if(!c0&&c1){
+                      // Plan line
+                      if(newMachTraining.length>0){
+                        var last=newMachTraining[newMachTraining.length-1];
+                        if(last.plan)last.plan+='\n'+c1;else last.plan=c1;
+                      }
+                    } else if(c0&&!row[2]&&!row[3]&&newMachTraining.length>0){
+                      // Attendee-only row (machine col blank in export for 2nd+ attendees)
+                      var last2=newMachTraining[newMachTraining.length-1];
+                      var attName2=String(row[4]||c0).trim();
+                      if(attName2&&attName2!=='—'){
+                        if(last2.attendees_list.indexOf(attName2)<0)last2.attendees_list.push(attName2);
+                        last2.attendees[attName2]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
+                        imported++;
+                      }
+                    }
+                  });
+                  if(newMachTraining.length>0)appState.machTraining=newMachTraining;
                 }
                 if(name==='my tasks'&&sh.xml.indexOf('My Tasks')>=0){
                   var newTasks=[];
@@ -2899,13 +2955,23 @@ function loadState(callback){
         return score;
       }
       var fbData=snap.val();
-      // Sessions always come from embedded HTML - never from Firebase
+      // Sessions: load from embedded HTML, but prefer localStorage if it has more sessions
       try{
         var SESSION_FIX_KEY='sess_fix_13nov26';
         if(true){
           var correctSessions=[{"id": "sess_001", "title": "Validation team introduction", "presenter": "Yigal Vainshtein", "date": "2026-11-04", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_002", "title": "CSUB Assembly & Ceramic Components Introduction", "presenter": "Timna", "date": "2026-11-01", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Michael", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_003", "title": "Epoxy Fundamentals", "presenter": "Nuphar", "date": "2026-09-28", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Michael", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_004", "title": "Agile system introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_005", "title": "PE team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_006", "title": "Quality team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_007", "title": "Thermal team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}];
+          // Check localStorage for more recent sessions (added via app)
+          try{
+            var lsRawSess=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk');
+            if(lsRawSess){
+              var lsParsed=JSON.parse(lsRawSess);
+              var lsSessions=lsParsed.sessions?Object.values(lsParsed.sessions):[];
+              var validLsSessions=lsSessions.filter(function(s){return s&&s.title&&s.title.indexOf('Training was scheduled')<0&&s.title.indexOf('He reached')<0;});
+              if(validLsSessions.length>correctSessions.length)correctSessions=validLsSessions;
+            }
+          }catch(e){}
           if(fbData)fbData.sessions=correctSessions;
-          console.log('[Sessions] Loaded from embedded HTML');
+          console.log('[Sessions] Loaded',correctSessions.length,'sessions');
         }
       }catch(e){console.error('[Fix] session restore failed:',e);}
       var fbScore=_countData(fbData);
