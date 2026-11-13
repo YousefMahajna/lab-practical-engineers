@@ -1,4 +1,147 @@
 <!DOCTYPE html>
+
+                if(name==='sessions'&&sh.xml.indexOf('Lab Sessions')>=0){
+                  var newSessions=[];
+                  var rowData2=parseSheetRows(sh.xml,sstrings);
+                  rowData2.forEach(function(row,ri){
+                    if(ri<2)return;
+                    if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0)return;
+                    if(!row[0].trim())return;
+                    newSessions.push({
+                      id:'sess_imp_'+Date.now()+'_'+ri,
+                      title:row[0]||'',
+                      presenter:row[1]||'',
+                      date:row[2]||'',
+                      time:row[3]||'',
+                      agenda:row[4]||'',
+                      attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),
+                      done:(row[6]||'').trim()==='Yes',
+                      link:''
+                    });
+                    imported++;
+                  });
+                  if(newSessions.length>0)appState.sessions=newSessions;
+                }
+                if(name==='machine training'&&sh.xml.indexOf('Machine Training')>=0){
+                  // Export cols: A=Machine, B=Site, C=From, D=To, E=Attendee, F=Status, G=Feedback
+                  var rowData4=[];
+                  (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
+                    var cells=[];
+                    (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
+                      var t=(cXml.match(/t="([^"]*)"/))||[];
+                      var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
+                      var r=(cXml.match(/r="([A-Z]+)/))||[];
+                      var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
+                      var val='';if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
+                      while(cells.length<=col)cells.push('');cells[col]=val;
+                    });
+                    rowData4.push(cells);
+                  });
+                  // Build training plans from rows
+                  var newMachTraining=[];
+                  var curPlan=null;
+                  rowData4.forEach(function(row){
+                    if(!row[0]&&!row[1])return;
+                    var c0=String(row[0]||'').trim();
+                    var c1=String(row[1]||'').trim();
+                    if(c0==='Machine'||c0.indexOf('Machine Training')>=0||c0==='Training Plan:')return;
+                    // New training block when machine name appears in col A
+                    if(c0&&c0!==''&&c1!=='' && (row[2]||row[3])){
+                      // This is an attendee row: A=machine, B=site, C=from, D=to, E=attendee, F=status, G=feedback
+                      var machineName=c0;
+                      var existing=newMachTraining.find(function(m){return m.machine===machineName;});
+                      if(!existing){
+                        existing={id:'mt_imp_'+Date.now()+'_'+newMachTraining.length,machine:machineName,site:row[1]||'',dateFrom:row[2]||'',dateTo:row[3]||'',plan:'',attendees_list:[],attendees:{}};
+                        newMachTraining.push(existing);
+                      }
+                      var attName=String(row[4]||'').trim();
+                      if(attName&&attName!=='—'){
+                        if(existing.attendees_list.indexOf(attName)<0)existing.attendees_list.push(attName);
+                        existing.attendees[attName]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
+                      }
+                      imported++;
+                    } else if(!c0&&c1){
+                      // Plan line
+                      if(newMachTraining.length>0){
+                        var last=newMachTraining[newMachTraining.length-1];
+                        if(last.plan)last.plan+='\n'+c1;else last.plan=c1;
+                      }
+                    } else if(c0&&!row[2]&&!row[3]&&newMachTraining.length>0){
+                      // Attendee-only row (machine col blank in export for 2nd+ attendees)
+                      var last2=newMachTraining[newMachTraining.length-1];
+                      var attName2=String(row[4]||c0).trim();
+                      if(attName2&&attName2!=='—'){
+                        if(last2.attendees_list.indexOf(attName2)<0)last2.attendees_list.push(attName2);
+                        last2.attendees[attName2]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
+                        imported++;
+                      }
+                    }
+                  });
+                  if(newMachTraining.length>0)appState.machTraining=newMachTraining;
+                }
+                if(name==='my tasks'&&sh.xml.indexOf('My Tasks')>=0){
+                  var newTasks=[];
+                  var rowData3=parseSheetRows(sh.xml,sstrings);
+                  rowData3.forEach(function(row,ri){
+                    if(ri<2)return;
+                    var title=String(row[1]||'').trim();
+                    if(!title||title==='Title')return;
+                    newTasks.push({id:'task_imp_'+Date.now()+'_'+ri,year:String(row[0]||'2026').trim(),title:title,category:String(row[2]||'').trim(),date:String(row[3]||'').trim(),details:String(row[4]||'').trim(),impact:String(row[5]||'').trim()});
+                    imported++;
+                  });
+                  if(newTasks.length>0){if(!appState.myTasks)appState.myTasks={};appState.myTasks.items=newTasks;}
+                }
+                if(name==='open ars'&&sh.xml.indexOf('Open Action')>=0){
+                  var newARs=[];
+                  var rowDataAR=parseSheetRows(sh.xml,sstrings);
+                  rowDataAR.forEach(function(row,ri){
+                    if(ri<2)return;
+                    var title=String(row[0]||'').trim();
+                    if(!title||title==='Title')return;
+                    newARs.push({id:'ar_imp_'+Date.now()+'_'+ri,title:title,status:String(row[1]||'').trim(),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'').trim()});
+                    imported++;
+                  });
+                  if(newARs.length>0)appState.openARs=newARs;
+                }
+                if(name==='vacations'&&sh.xml.indexOf('Team Vacations')>=0){
+                  var pidsVac=['yousef','haytam','garold','michael','samer','amir'];
+                  var rowDataVac=parseSheetRows(sh.xml,sstrings);
+                  if(!appState.vacations)appState.vacations={};
+                  rowDataVac.forEach(function(row,ri){
+                    if(ri<2)return;
+                    var dt=String(row[0]||'').trim();
+                    if(!dt||dt==='Date'||!/^\d{4}/.test(dt))return;
+                    if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
+                    pidsVac.forEach(function(pid,pi){
+                      var val=String(row[pi+1]||'').trim();
+                      if(val==='Vacation'&&appState.vacations[dt].vac.indexOf(pid)<0)appState.vacations[dt].vac.push(pid);
+                      if(val==='Business Trip'&&appState.vacations[dt].trip.indexOf(pid)<0)appState.vacations[dt].trip.push(pid);
+                    });
+                    imported++;
+                  });
+                }
+                if(name==='machines'&&sh.xml.indexOf('Lab Machines')>=0){
+                  var pidsM=['haytam','garold','michael','samer','amir'];
+                  var rowDataM=parseSheetRows(sh.xml,sstrings);
+                  if(!appState.machineScores)appState.machineScores={};
+                  if(!appState.machineGoals)appState.machineGoals={};
+                  var machines=getMachines?getMachines():(appState.machines||[]);
+                  if(typeof machines==='object'&&!Array.isArray(machines))machines=Object.values(machines);
+                  var machIdx={};machines.forEach(function(m){if(m&&m.name)machIdx[m.name.toLowerCase().trim()]=m.id;});
+                  rowDataM.forEach(function(row,ri){
+                    if(ri<2)return;
+                    var mname=String(row[0]||'').trim();
+                    if(!mname||mname==='Machine')return;
+                    var mid=machIdx[mname.toLowerCase()];if(!mid)return;
+                    pidsM.forEach(function(pid,pi){
+                      var lvl=parseInt(row[pi+3])||0;
+                      var goal=parseInt(row[pi+3+pidsM.length])||0;
+                      appState.machineScores[mid+'__'+pid]=lvl;
+                      appState.machineGoals[mid+'__'+pid]=goal;
+                    });
+                    imported++;
+                  });
+                }
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -510,7 +653,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26l';
+var BUILD_TS='14.11.26m';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2515,154 +2658,6 @@ function importFromFullExcel(input){
                     if(!ps.pct)ps.pct={};ps.pct[id]=newPct;
                     if(!ps.items)ps.items={};ps.items[id]=newDone;
                     if(!ps.notes)ps.notes={};ps.notes[id]=String(row[5]||'').trim();
-                    imported++;
-                  });
-                }
-              });
-              // Import Sessions sheet
-              console.log('[Import] Starting sheet imports for sessions/tasks/etc');
-              sheets.forEach(function(sh){
-                if(!sh)return;
-                var name=sh.name.trim().toLowerCase();
-                if(name==='sessions'&&sh.xml.indexOf('Lab Sessions')>=0){
-                  var newSessions=[];
-                  var rowData2=parseSheetRows(sh.xml,sstrings);
-                  rowData2.forEach(function(row,ri){
-                    if(ri<2)return;
-                    if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0)return;
-                    if(!row[0].trim())return;
-                    newSessions.push({
-                      id:'sess_imp_'+Date.now()+'_'+ri,
-                      title:row[0]||'',
-                      presenter:row[1]||'',
-                      date:row[2]||'',
-                      time:row[3]||'',
-                      agenda:row[4]||'',
-                      attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),
-                      done:(row[6]||'').trim()==='Yes',
-                      link:''
-                    });
-                    imported++;
-                  });
-                  if(newSessions.length>0)appState.sessions=newSessions;
-                }
-                if(name==='machine training'&&sh.xml.indexOf('Machine Training')>=0){
-                  // Export cols: A=Machine, B=Site, C=From, D=To, E=Attendee, F=Status, G=Feedback
-                  var rowData4=[];
-                  (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
-                    var cells=[];
-                    (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
-                      var t=(cXml.match(/t="([^"]*)"/))||[];
-                      var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
-                      var r=(cXml.match(/r="([A-Z]+)/))||[];
-                      var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
-                      var val='';if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
-                      while(cells.length<=col)cells.push('');cells[col]=val;
-                    });
-                    rowData4.push(cells);
-                  });
-                  // Build training plans from rows
-                  var newMachTraining=[];
-                  var curPlan=null;
-                  rowData4.forEach(function(row){
-                    if(!row[0]&&!row[1])return;
-                    var c0=String(row[0]||'').trim();
-                    var c1=String(row[1]||'').trim();
-                    if(c0==='Machine'||c0.indexOf('Machine Training')>=0||c0==='Training Plan:')return;
-                    // New training block when machine name appears in col A
-                    if(c0&&c0!==''&&c1!=='' && (row[2]||row[3])){
-                      // This is an attendee row: A=machine, B=site, C=from, D=to, E=attendee, F=status, G=feedback
-                      var machineName=c0;
-                      var existing=newMachTraining.find(function(m){return m.machine===machineName;});
-                      if(!existing){
-                        existing={id:'mt_imp_'+Date.now()+'_'+newMachTraining.length,machine:machineName,site:row[1]||'',dateFrom:row[2]||'',dateTo:row[3]||'',plan:'',attendees_list:[],attendees:{}};
-                        newMachTraining.push(existing);
-                      }
-                      var attName=String(row[4]||'').trim();
-                      if(attName&&attName!=='—'){
-                        if(existing.attendees_list.indexOf(attName)<0)existing.attendees_list.push(attName);
-                        existing.attendees[attName]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
-                      }
-                      imported++;
-                    } else if(!c0&&c1){
-                      // Plan line
-                      if(newMachTraining.length>0){
-                        var last=newMachTraining[newMachTraining.length-1];
-                        if(last.plan)last.plan+='\n'+c1;else last.plan=c1;
-                      }
-                    } else if(c0&&!row[2]&&!row[3]&&newMachTraining.length>0){
-                      // Attendee-only row (machine col blank in export for 2nd+ attendees)
-                      var last2=newMachTraining[newMachTraining.length-1];
-                      var attName2=String(row[4]||c0).trim();
-                      if(attName2&&attName2!=='—'){
-                        if(last2.attendees_list.indexOf(attName2)<0)last2.attendees_list.push(attName2);
-                        last2.attendees[attName2]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
-                        imported++;
-                      }
-                    }
-                  });
-                  if(newMachTraining.length>0)appState.machTraining=newMachTraining;
-                }
-                if(name==='my tasks'&&sh.xml.indexOf('My Tasks')>=0){
-                  var newTasks=[];
-                  var rowData3=parseSheetRows(sh.xml,sstrings);
-                  rowData3.forEach(function(row,ri){
-                    if(ri<2)return;
-                    var title=String(row[1]||'').trim();
-                    if(!title||title==='Title')return;
-                    newTasks.push({id:'task_imp_'+Date.now()+'_'+ri,year:String(row[0]||'2026').trim(),title:title,category:String(row[2]||'').trim(),date:String(row[3]||'').trim(),details:String(row[4]||'').trim(),impact:String(row[5]||'').trim()});
-                    imported++;
-                  });
-                  if(newTasks.length>0){if(!appState.myTasks)appState.myTasks={};appState.myTasks.items=newTasks;}
-                }
-                if(name==='open ars'&&sh.xml.indexOf('Open Action')>=0){
-                  var newARs=[];
-                  var rowDataAR=parseSheetRows(sh.xml,sstrings);
-                  rowDataAR.forEach(function(row,ri){
-                    if(ri<2)return;
-                    var title=String(row[0]||'').trim();
-                    if(!title||title==='Title')return;
-                    newARs.push({id:'ar_imp_'+Date.now()+'_'+ri,title:title,status:String(row[1]||'').trim(),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'').trim()});
-                    imported++;
-                  });
-                  if(newARs.length>0)appState.openARs=newARs;
-                }
-                if(name==='vacations'&&sh.xml.indexOf('Team Vacations')>=0){
-                  var pidsVac=['yousef','haytam','garold','michael','samer','amir'];
-                  var rowDataVac=parseSheetRows(sh.xml,sstrings);
-                  if(!appState.vacations)appState.vacations={};
-                  rowDataVac.forEach(function(row,ri){
-                    if(ri<2)return;
-                    var dt=String(row[0]||'').trim();
-                    if(!dt||dt==='Date'||!/^\d{4}/.test(dt))return;
-                    if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
-                    pidsVac.forEach(function(pid,pi){
-                      var val=String(row[pi+1]||'').trim();
-                      if(val==='Vacation'&&appState.vacations[dt].vac.indexOf(pid)<0)appState.vacations[dt].vac.push(pid);
-                      if(val==='Business Trip'&&appState.vacations[dt].trip.indexOf(pid)<0)appState.vacations[dt].trip.push(pid);
-                    });
-                    imported++;
-                  });
-                }
-                if(name==='machines'&&sh.xml.indexOf('Lab Machines')>=0){
-                  var pidsM=['haytam','garold','michael','samer','amir'];
-                  var rowDataM=parseSheetRows(sh.xml,sstrings);
-                  if(!appState.machineScores)appState.machineScores={};
-                  if(!appState.machineGoals)appState.machineGoals={};
-                  var machines=getMachines?getMachines():(appState.machines||[]);
-                  if(typeof machines==='object'&&!Array.isArray(machines))machines=Object.values(machines);
-                  var machIdx={};machines.forEach(function(m){if(m&&m.name)machIdx[m.name.toLowerCase().trim()]=m.id;});
-                  rowDataM.forEach(function(row,ri){
-                    if(ri<2)return;
-                    var mname=String(row[0]||'').trim();
-                    if(!mname||mname==='Machine')return;
-                    var mid=machIdx[mname.toLowerCase()];if(!mid)return;
-                    pidsM.forEach(function(pid,pi){
-                      var lvl=parseInt(row[pi+3])||0;
-                      var goal=parseInt(row[pi+3+pidsM.length])||0;
-                      appState.machineScores[mid+'__'+pid]=lvl;
-                      appState.machineGoals[mid+'__'+pid]=goal;
-                    });
                     imported++;
                   });
                 }
