@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26r';
+var BUILD_TS='13.11.26s';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2899,16 +2899,13 @@ function loadState(callback){
         return score;
       }
       var fbData=snap.val();
-      // ONE-TIME SESSION FIX: push correct sessions if fix not yet applied
+      // Sessions always come from embedded HTML - never from Firebase
       try{
         var SESSION_FIX_KEY='sess_fix_13nov26';
-        if(!localStorage.getItem(SESSION_FIX_KEY)){
+        if(true){
           var correctSessions=[{"id": "sess_001", "title": "Validation team introduction", "presenter": "Yigal Vainshtein", "date": "2026-11-04", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_002", "title": "CSUB Assembly & Ceramic Components Introduction", "presenter": "Timna", "date": "2026-11-01", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Michael", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_003", "title": "Epoxy Fundamentals", "presenter": "Nuphar", "date": "2026-09-28", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Michael", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_004", "title": "Agile system introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_005", "title": "PE team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_006", "title": "Quality team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_007", "title": "Thermal team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}];
-          firebaseDB.ref('appState/sessions').set(correctSessions).then(function(){
-            localStorage.setItem(SESSION_FIX_KEY,'done');
-            console.log('[Fix] Sessions corrected in Firebase');
-          });
           if(fbData)fbData.sessions=correctSessions;
+          console.log('[Sessions] Loaded from embedded HTML');
         }
       }catch(e){console.error('[Fix] session restore failed:',e);}
       var fbScore=_countData(fbData);
@@ -2940,7 +2937,7 @@ function loadState(callback){
       if(fbData&&Object.keys(fbData).length>2){
         // Merge: use embedded as base, overlay Firebase progress fields
         appState = appStateBase;
-        var progressFields=['items','notes','pct','site','siteNote','teamScore','teamComment','empComment','mgrComment','deletedItems','focal2026','yousefMonthSummary','monthSummary','amirMonthNote','mgrMonthNotes','mgrNotes','amirNotes','_deletedTasks','_amirCustomTasks','_allItems','sessions','myTasks'];
+        var progressFields=['items','notes','pct','site','siteNote','teamScore','teamComment','empComment','mgrComment','deletedItems','focal2026','yousefMonthSummary','monthSummary','amirMonthNote','mgrMonthNotes','mgrNotes','amirNotes','_deletedTasks','_amirCustomTasks','_allItems','myTasks'];
         ['haytam','garold','michael','samer'].forEach(function(pid){
           if(fbData[pid]){
             if(!appState[pid])appState[pid]={};
@@ -3044,7 +3041,10 @@ function saveStateNow(){
         savePromise=Promise.resolve();
       } else {
         // Manager: use update not set, to avoid full overwrite race conditions
-        savePromise=saveRef.update(appState);
+        // Exclude sessions - they live in embedded HTML, not Firebase
+        var saveData=Object.assign({},appState);
+        delete saveData.sessions;
+        savePromise=saveRef.update(saveData);
       }
       savePromise.then(function(){
         try{var l=document.getElementById("ls");if(l){l.textContent="Saved "+new Date().toLocaleTimeString();l.style.color="#76b900";
