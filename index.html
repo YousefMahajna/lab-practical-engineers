@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26d';
+var BUILD_TS='14.11.26e';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2475,8 +2475,11 @@ function importFromFullExcel(input){
                     if(!row[1]||isNaN(parseInt(c0)))return;
                     var label=String(row[1]).trim().toLowerCase();
                     var id=itemIdx[label];if(!id)return;
-                    if(!ps.pct)ps.pct={};ps.pct[id]=parseInt(row[2])||0;
-                    if(!ps.items)ps.items={};ps.items[id]=String(row[3]||'').trim()==='V';
+                    var newPct=parseInt(row[2])||0;
+                    var newDone=String(row[3]||'').trim()==='V';
+                    console.log('[Import] '+p.id+' '+id+' pct:'+newPct+' done:'+newDone+' label:'+label.substring(0,30));
+                    if(!ps.pct)ps.pct={};ps.pct[id]=newPct;
+                    if(!ps.items)ps.items={};ps.items[id]=newDone;
                     if(!ps.notes)ps.notes={};ps.notes[id]=String(row[5]||'').trim();
                     imported++;
                   });
