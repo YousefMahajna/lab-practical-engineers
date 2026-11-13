@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26o';
+var BUILD_TS='14.11.26p';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2482,7 +2482,8 @@ function importFromFullExcel(input){
                     imported++;
                   });
                 } else {
-                  var p=personMap[name];if(!p)return;
+                  var p=personMap[name];
+                  if(p){
                   var ps=appState[p.id];if(!ps)return;
                   var itemIdx={};
                   // Build from PEOPLE items
@@ -2517,8 +2518,8 @@ function importFromFullExcel(input){
                     imported++;
                   });
                 }
+                  } // end if(p)
                 // Sessions
-                console.log('[Import2] sheet='+name+' sessions match='+(name==='sessions')+' xml check='+(sh.xml.indexOf('Lab Sessions')>=0));
                 if(name==='sessions'&&sh.xml.indexOf('Lab Sessions')>=0){
                   var newSessions=[];
                   parseSheetRows(sh.xml,sstrings).forEach(function(row,ri){
