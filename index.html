@@ -2157,14 +2157,14 @@ function _buildXlsx(){
   }
   function hRow(ls){return{cells:ls.map(function(l){return H(l);}),h:22};}
   function titleRow(lbl,span){var cells=[cS(lbl,ST.title)];for(var _i=1;_i<span;_i++)cells.push(cS('',ST.blank));return{cells:cells,h:20};}
-  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v).replace(/\n/g,' | '),ST.norm);}),h:18};}
+  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v),ST.norm);}),h:18};}
   function mhRow(lbl){
     var r={cells:[cS(lbl,ST.monthH)],h:22,merge:[[0,NC-1]]};
     for(var i=1;i<NC;i++)r.cells.push(cB(ST.monthH));
     return r;
   }
   function sRow(lbl,val,note,nTs){
-    var noteFlat2=(note||'').replace(/\n/g,' | ');
+    var noteFlat2=(note||'');
     var r={cells:[cS(lbl,ST.secH),cS(val||'',ST.secH)],h:18,merge:[[NC-2,NC-2]]};
     for(var i=2;i<NC-3;i++)r.cells.push(cB(ST.secH));
     r.cells.push(cS(nTs||'',ST.ts),cS(noteFlat2,ST.note),cB(ST.blank));
@@ -2195,7 +2195,7 @@ function _buildXlsx(){
       var stTs=String((ps.itemsTs&&ps.itemsTs[it.id])||(ps.pctTs&&ps.pctTs[it.id])||'');
       var mgr=String(ps.mgrComment||'');
       var sf=done?ST.done:ST.norm;var sc=done?ST.doneC:ST.normC;
-      var noteFlat=note.replace(/\n/g,' | ');
+      var noteFlat=note;
       rows.push({cells:[cN(num,sc),cS(it.label,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(stTs,ST.ts),cS(noteFlat,ST.note),cS(noteTs,ST.ts),cB(ST.blank),cB(ST.blank)],h:18});
       num++;
     });
@@ -2215,7 +2215,7 @@ function _buildXlsx(){
         var note=String(ps.notes&&ps.notes[it.id]||'');
         var noteTs=String(ps.notesTs&&ps.notesTs[it.id]||'');
         var sf=done?ST.done:ST.norm;var sc=done?ST.doneC:ST.normC;
-        rows.push({cells:[cS(it.cat,sf),cS(it.task,sf),cS(it.mentor,sf),cS(it.obj,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(String(ps.status&&ps.status[it.id]||''),ST.ts),cS(note.replace(/\n/g,' | '),ST.note),cS(noteTs,ST.ts),cB(ST.blank)],h:18});
+        rows.push({cells:[cS(it.cat,sf),cS(it.task,sf),cS(it.mentor,sf),cS(it.obj,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(String(ps.status&&ps.status[it.id]||''),ST.ts),cS(note,ST.note),cS(noteTs,ST.ts),cB(ST.blank)],h:18});
         td+=done?1:0;ti++;
       });
       var mgN=String((ps.monthSummary&&ps.monthSummary[mg.month])||'');
@@ -2387,77 +2387,56 @@ function _buildXlsx(){
   });
 }
 
-function importFromFullExcel(input){
-  var file=input.files[0];if(!file)return;input.value='';
-  function run(){
-    var reader=new FileReader();
-    reader.onload=function(e){
-      console.log('[Import] File loaded, size='+e.target.result.byteLength);
-      try{
-        var zip=new JSZip();
-        zip.loadAsync(e.target.result).then(function(z){
-          console.log('[Import] ZIP opened, files='+Object.keys(z.files).length);
-          var ssF=z.file('xl/sharedStrings.xml');
-          var wbF=z.file('xl/workbook.xml');
-          var wbRF=z.file('xl/_rels/workbook.xml.rels');
-          Promise.all([wbF.async('string'),wbRF.async('string'),ssF?ssF.async('string'):Promise.resolve('')]).then(function(res){
-            var wbXml=res[0],wbRels=res[1],ssXml=res[2];
-            var sstrings=[];
-            // Parse each <si> element and concatenate all <t> values (handles rich text <r><t> structure)
-            (ssXml.match(/<si>[\s\S]*?<\/si>/g)||[]).forEach(function(si){
-              var text='';
-              (si.match(/<t[^>]*>([^<]*)<\/t>/g)||[]).forEach(function(t){
-                text+=t.replace(/<\/?t[^>]*>/g,'');
-              });
-              sstrings.push(text.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&apos;/g,"'"));
-            });
-            var shList=[];
-            (wbXml.match(/<sheet[^/]*/g)||[]).forEach(function(m){var nm=(m.match(/name="([^"]*)"/))||[];var rid=(m.match(/r:id="([^"]*)"/))||[];if(nm[1]&&rid[1])shList.push({name:nm[1],rid:rid[1]});});
-            var ridPath={};
-            (wbRels.match(/<Relationship[^>]*/g)||[]).forEach(function(m){var id=(m.match(/Id="([^"]*)"/))||[];var tgt=(m.match(/Target="([^"]*)"/))||[];if(id[1]&&tgt[1])ridPath[id[1]]='xl/'+tgt[1];});
-            var shProm=shList.map(function(sh){var p=ridPath[sh.rid];if(!p)return Promise.resolve(null);return z.file(p).async('string').then(function(xml){return{name:sh.name,xml:xml};});});
-            Promise.all(shProm).then(function(sheets){
-              var imported=0;
-              var personMap={};
-              (PEOPLE||[]).forEach(function(p){personMap[p.name.toLowerCase()]=p;});
-              // Helper: parse sheet XML into array of cell arrays
-              function parseSheetRows(shXml,ss){
-                var result=[];
-                (shXml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
-                  var cells=[];
-                  (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
-                    var t=(cXml.match(/t="([^"]*)"/))||[];
-                    var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
-                    var r=(cXml.match(/r="([A-Z]+)/))||[];
-                    var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
-                    var val='';if(v[1]!==undefined){val=(t[1]==='s')?(ss[parseInt(v[1])]||''):v[1];}
-                    while(cells.length<=col)cells.push('');cells[col]=val;
-                  });
-                  for(var _fi=0;_fi<cells.length;_fi++){if(cells[_fi]===undefined)cells[_fi]='';}
-                  result.push(cells);
-                });
-                return result;
-              }
+/* Excel import: parse OpenXML as XML, dispatch by worksheet name, then commit. */
+function _excelXml(text){
+  var doc=new DOMParser().parseFromString(text,'application/xml');
+  if(doc.getElementsByTagName('parsererror').length)throw new Error('Invalid workbook XML');
+  return doc;
+}
+function _excelElements(node,name){return Array.prototype.slice.call(node.getElementsByTagNameNS('*',name));}
+function _excelRows(xml,strings){
+  return _excelElements(_excelXml(xml),'row').map(function(row){
+    var cells=[];
+    _excelElements(row,'c').forEach(function(c){
+      var ref=(c.getAttribute('r')||'').match(/^[A-Z]+/);
+      var col=ref?ref[0].split('').reduce(function(n,ch){return n*26+ch.charCodeAt(0)-64;},0)-1:cells.length;
+      var type=c.getAttribute('t'),v=_excelElements(c,'v')[0],value=v?v.textContent:'';
+      if(type==='s')value=strings[Number(value)]||'';
+      else if(type==='inlineStr')value=_excelElements(c,'t').map(function(t){return t.textContent;}).join('');
+      while(cells.length<=col)cells.push('');cells[col]=value;
+    });return cells;
+  });
+}
+async function _readExcelSheets(buffer){
+  var zip=await JSZip.loadAsync(buffer);
+  async function read(path,optional){var f=zip.file(path);if(!f){if(optional)return '';throw new Error('Missing workbook part: '+path);}return f.async('string');}
+  var texts=await Promise.all([read('xl/workbook.xml'),read('xl/_rels/workbook.xml.rels'),read('xl/sharedStrings.xml',true)]);
+  var strings=texts[2]?_excelElements(_excelXml(texts[2]),'si').map(function(si){return _excelElements(si,'t').map(function(t){return t.textContent;}).join('');}):[];
+  var paths={};
+  _excelElements(_excelXml(texts[1]),'Relationship').forEach(function(r){
+    var target=r.getAttribute('Target'),parts=[];
+    (target.charAt(0)==='/'?target.slice(1):'xl/'+target).split('/').forEach(function(p){if(p==='..')parts.pop();else if(p&&p!=='.')parts.push(p);});
+    paths[r.getAttribute('Id')]=parts.join('/');
+  });
+  return Promise.all(_excelElements(_excelXml(texts[0]),'sheet').map(async function(sh){
+    var rid=sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||sh.getAttribute('r:id');
+    var rows=_excelRows(await read(paths[rid]),strings);return {name:sh.getAttribute('name'),rows:rows};
+  }));
+}
+function _applyExcelSheets(sheets,state){
+  var imported=0,personMap={};
+  (PEOPLE||[]).forEach(function(p){personMap[p.name.toLowerCase()]=p;});
+  function carry(old,rows,key){
+    var used={};old=Array.isArray(old)?old:Object.values(old||{});
+    return rows.map(function(row){var i=old.findIndex(function(x,idx){return !used[idx]&&x[key]===row[key];});
+      if(i<0)return row;used[i]=true;return Object.assign({},old[i],row,{id:old[i].id||row.id});});
+  }
               sheets.forEach(function(sh){
                 if(!sh)return;
                 var name=sh.name.trim().toLowerCase();
-                var rowData=[];
-                (sh.xml.match(/<row[^>]*>([\s\S]*?)<\/row>/g)||[]).forEach(function(rowXml){
-                  var cells=[];
-                  (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
-                    var t=(cXml.match(/t="([^"]*)"/))||[];
-                    var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
-                    var r=(cXml.match(/r="([A-Z]+)/))||[];
-                    var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
-                    var val='';
-                    if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
-                    cells[col]=val;
-                  });
-                  for(var _fi=0;_fi<cells.length;_fi++){if(cells[_fi]===undefined)cells[_fi]='';}
-                  rowData.push(cells);
-                });
+                var rowData=sh.rows;
                 if(name==='amir'){
-                  var ps=appState.amir;
+                  var ps=state.amir;
                   var curMonth=null;
                   var taskIdx={};
                   (AMIR_TRAINING||[]).forEach(function(mg){(mg.items||[]).forEach(function(it){taskIdx[it.task.toLowerCase().trim()]=it.id;});});
@@ -2465,43 +2444,42 @@ function importFromFullExcel(input){
                     if(!row||!row[0])return;
                     var c0=String(row[0]).trim();
                     if(c0.startsWith('| ')){curMonth=c0.replace('| ','').trim();return;}
-                    if(c0==='Category'||c0.startsWith('Exported')||c0.startsWith('Amir')||c0.startsWith('TOTAL'))return;
+                    if(c0==='Category'||c0.startsWith('Exported')||c0.startsWith('Amir -')||c0.startsWith('TOTAL'))return;
                     if(c0.startsWith('Manager Notes')&&curMonth&&!c0.includes('Mgr Notes on')){if(!ps.monthSummary)ps.monthSummary={};ps.monthSummary[curMonth]=String(row[1]||'').trim();return;}
                     if(c0.startsWith('Amir Notes')&&curMonth){if(!ps.amirMonthNote)ps.amirMonthNote={};ps.amirMonthNote[curMonth]=String(row[1]||'').trim();return;}
                     if(c0.startsWith('Mgr Notes on Amir')&&curMonth){if(!ps.mgrMonthNotes)ps.mgrMonthNotes={};ps.mgrMonthNotes[curMonth]=String(row[1]||'').trim();return;}
                     // Amir export cols: A=Category, B=Task/Training, C=Mentor, D=Objective, E=%, F=Done, G=Status, H=Note
                     var taskTxt=String(row[1]||'').trim().toLowerCase();
                     var id=taskIdx[taskTxt];if(!id)return;
-                    var amirPct=parseInt(row[4])||0;
+                    var amirPct=Math.min(100,Math.max(0,parseFloat(row[4])||0));
                     var amirDone=String(row[5]||'').trim()==='V';
                     if(!ps.pct)ps.pct={};ps.pct[id]=amirPct;
                     if(!ps.items)ps.items={};ps.items[id]=amirDone;
-                    if(!ps.status)ps.status={};if(row[6])ps.status[id]=String(row[6]).trim();
-                    if(!ps.notes)ps.notes={};if(row[7])ps.notes[id]=String(row[7]||'').trim();
-                    console.log('[Import] amir '+id+' pct:'+amirPct+' done:'+amirDone);
+                    if(!ps.status)ps.status={};ps.status[id]=String(row[6]||'').trim();
+                    if(!ps.notes)ps.notes={};ps.notes[id]=String(row[7]||'');
                     imported++;
                   });
                 } else {
                   var p=personMap[name];
                   if(p){
-                  var ps=appState[p.id];if(!ps)return;
+                  var ps=state[p.id];if(!ps)return;
                   var itemIdx={};
                   // Build from PEOPLE items
                   (p.items||[]).forEach(function(it){if(it.label)itemIdx[it.label.toLowerCase().trim()]=it.id;});
                   // Also include _allItems which may have edited labels
-                  var allIt=appState._allItems&&appState._allItems[p.id];
+                  var allIt=state._allItems&&state._allItems[p.id];
                   if(allIt){var allItArr=Array.isArray(allIt)?allIt:Object.values(allIt);allItArr.forEach(function(it){if(it&&it.label&&it.id)itemIdx[it.label.toLowerCase().trim()]=it.id;});}
-                  // Also check appState[pid] items directly
-                  var psItems=appState[p.id]&&appState[p.id].items;
+                  // Also check state[pid] items directly
+                  var psItems=state[p.id]&&state[p.id].items;
                   if(psItems){Object.keys(psItems).forEach(function(id){var pIt=p.items.find(function(x){return x.id===id;});if(pIt&&pIt.label)itemIdx[pIt.label.toLowerCase().trim()]=id;});}
                   rowData.forEach(function(row){
                     if(!row||!row[0])return;
                     var c0=String(row[0]).trim();
                     // Col layout: A=num, B=label, C=pct, D=done(V/-), E=stTs, F=note, G=noteTs
-                    if(c0==='TEAM DYNAMICS'){ps.teamComment=String(row[5]||row[6]||'').trim();return;}
-                    if(c0==='EMPLOYEE COMMENT'){ps.empComment=String(row[5]||row[6]||'').trim();return;}
-                    if(c0==='MANAGER COMMENT'){ps.mgrComment=String(row[5]||row[6]||'').trim();return;}
-                    if(c0==='SITE'){ps.siteNote=String(row[5]||row[6]||'').trim();return;}
+                    if(c0==='TEAM DYNAMICS'){ps.teamScore=parseInt(String(row[1]||'').replace('Score:',''))||0;ps.teamComment=String(row[7]||'');return;}
+                    if(c0==='EMPLOYEE COMMENT'){ps.empComment=String(row[7]||'');return;}
+                    if(c0==='MANAGER COMMENT'){ps.mgrComment=String(row[7]||'');return;}
+                    if(c0==='SITE'){ps.site=String(row[3]||'').trim()==='V';ps.siteNote=String(row[5]||'');return;}
                     if(!row[1]||isNaN(parseInt(c0)))return;
                     // Skip if col B looks like a note, done value, or timestamp (not a real label)
                     var col1=String(row[1]).trim();
@@ -2509,9 +2487,8 @@ function importFromFullExcel(input){
                     if(/^\d{4}-\d{2}/.test(col1))return; // skip date strings
                     var label=col1.toLowerCase();
                     var id=itemIdx[label];if(!id)return;
-                    var newPct=parseInt(row[2])||0;
+                    var newPct=Math.min(100,Math.max(0,parseFloat(row[2])||0));
                     var newDone=String(row[3]||'').trim()==='V';
-                    console.log('[Import] '+p.id+' '+id+' pct:'+newPct+' done:'+newDone+' label:'+label.substring(0,30));
                     if(!ps.pct)ps.pct={};ps.pct[id]=newPct;
                     if(!ps.items)ps.items={};ps.items[id]=newDone;
                     if(!ps.notes)ps.notes={};ps.notes[id]=String(row[5]||'').trim();
@@ -2520,161 +2497,139 @@ function importFromFullExcel(input){
                 }
                   } // end if(p)
                 // Sessions
-                if(name==='sessions'&&sh.xml.indexOf('Lab Sessions')>=0){
+                if(name==='sessions'){
                   var newSessions=[];
-                  parseSheetRows(sh.xml,sstrings).forEach(function(row,ri){
+                  rowData.forEach(function(row,ri){
                     if(ri<2)return;
                     if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0||!row[0].trim())return;
-                    newSessions.push({id:'sess_imp_'+Date.now()+'_'+ri,title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:(row[6]||'').trim()==='Yes',link:''});
+                    newSessions.push({id:'sess_imp_'+Date.now()+'_'+ri,title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:(row[6]||'').trim()==='Yes'});
                     imported++;
                   });
-                  if(newSessions.length>0)appState.sessions=newSessions;
+                  if(newSessions.length>0)state.sessions=carry(state.sessions,newSessions,'title');
                 }
                 // My Tasks
-                if(name==='my tasks'&&sh.xml.indexOf('My Tasks')>=0){
+                if(name==='my tasks'){
                   var newTasks=[];
-                  parseSheetRows(sh.xml,sstrings).forEach(function(row,ri){
+                  rowData.forEach(function(row,ri){
                     if(ri<2)return;
                     var title=String(row[1]||'').trim();
                     if(!title||title==='Title')return;
                     newTasks.push({id:'task_imp_'+Date.now()+'_'+ri,year:String(row[0]||'2026').trim(),title:title,category:String(row[2]||'').trim(),date:String(row[3]||'').trim(),details:String(row[4]||'').trim(),impact:String(row[5]||'').trim()});
                     imported++;
                   });
-                  if(newTasks.length>0){if(!appState.myTasks)appState.myTasks={};appState.myTasks.items=newTasks;}
+                  if(newTasks.length>0){if(!state.myTasks)state.myTasks={};state.myTasks.items=carry(state.myTasks.items,newTasks,'title');}
                 }
                 // Open ARs
-                if(name==='open ars'&&sh.xml.indexOf('Open Action')>=0){
+                if(name==='open ars'){
                   var newARs=[];
-                  parseSheetRows(sh.xml,sstrings).forEach(function(row,ri){
+                  rowData.forEach(function(row,ri){
                     if(ri<2)return;
                     var title=String(row[0]||'').trim();
                     if(!title||title==='Title')return;
                     newARs.push({id:'ar_imp_'+Date.now()+'_'+ri,title:title,status:String(row[1]||'').trim(),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'').trim()});
                     imported++;
                   });
-                  if(newARs.length>0)appState.openARs=newARs;
+                  if(newARs.length>0)state.openARs=carry(state.openARs,newARs,'title');
                 }
                 // Vacations
-                if(name==='vacations'&&sh.xml.indexOf('Team Vacations')>=0){
+                if(name==='vacations'){
                   var pidsVac=['yousef','haytam','garold','michael','samer','amir'];
-                  if(!appState.vacations)appState.vacations={};
-                  parseSheetRows(sh.xml,sstrings).forEach(function(row,ri){
+                  if(!state.vacations)state.vacations={};
+                  rowData.forEach(function(row,ri){
                     if(ri<2)return;
                     var dt=String(row[0]||'').trim();
                     if(!dt||dt==='Date'||!/^\d{4}/.test(dt))return;
-                    if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
+                    state.vacations[dt]={vac:[],trip:[]};
                     pidsVac.forEach(function(pid,pi){
                       var val=String(row[pi+1]||'').trim();
-                      if(val==='Vacation'&&appState.vacations[dt].vac.indexOf(pid)<0)appState.vacations[dt].vac.push(pid);
-                      if(val==='Business Trip'&&appState.vacations[dt].trip.indexOf(pid)<0)appState.vacations[dt].trip.push(pid);
+                      if(val==='Vacation'&&state.vacations[dt].vac.indexOf(pid)<0)state.vacations[dt].vac.push(pid);
+                      if(val==='Business Trip'&&state.vacations[dt].trip.indexOf(pid)<0)state.vacations[dt].trip.push(pid);
                     });
                     imported++;
                   });
                 }
                 // Machines
-                if(name==='machines'&&sh.xml.indexOf('Lab Machines')>=0){
+                if(name==='machines'){
                   var pidsM=['haytam','garold','michael','samer','amir'];
-                  if(!appState.machineScores)appState.machineScores={};
-                  if(!appState.machineGoals)appState.machineGoals={};
-                  var machinesArr=typeof getMachines==='function'?getMachines():(appState.machines||[]);
+                  if(!state.machineScores)state.machineScores={};
+                  if(!state.machineGoals)state.machineGoals={};
+                  var machinesArr=state.machines||DEFAULT_MACHINES;
                   if(typeof machinesArr==='object'&&!Array.isArray(machinesArr))machinesArr=Object.values(machinesArr);
                   var machIdx={};machinesArr.forEach(function(m){if(m&&m.name)machIdx[m.name.toLowerCase().trim()]=m.id;});
-                  parseSheetRows(sh.xml,sstrings).forEach(function(row,ri){
+                  rowData.forEach(function(row,ri){
                     if(ri<2)return;
                     var mname=String(row[0]||'').trim();
                     if(!mname||mname==='Machine')return;
                     var mid=machIdx[mname.toLowerCase()];if(!mid)return;
+                    var machine=machinesArr.find(function(m){return m.id===mid;});machine.owner=String(row[1]||'');machine.category=String(row[2]||'');
                     pidsM.forEach(function(pid,pi){
-                      appState.machineScores[mid+'__'+pid]=parseInt(row[pi+3])||0;
-                      appState.machineGoals[mid+'__'+pid]=parseInt(row[pi+3+pidsM.length])||0;
+                      state.machineScores[mid+'__'+pid]=parseInt(row[pi+3])||0;
+                      state.machineGoals[mid+'__'+pid]=parseInt(row[pi+3+pidsM.length])||0;
                     });
                     imported++;
                   });
                 }
                 // Machine Training
-                if(name==='machine training'&&sh.xml.indexOf('Machine Training')>=0){
-                  var newMachTraining=[];
-                  parseSheetRows(sh.xml,sstrings).forEach(function(row){
-                    if(!row[0]&&!row[1])return;
-                    var c0=String(row[0]||'').trim();var c1=String(row[1]||'').trim();
-                    if(c0==='Machine'||c0.indexOf('Machine Training')>=0||c0==='Training Plan:'||c0.indexOf('Attendees:')>=0)return;
-                    if(c0&&c1&&(row[2]||row[3])){
-                      var existing=newMachTraining.find(function(m){return m.machine===c0;});
-                      if(!existing){existing={id:'mt_imp_'+Date.now()+'_'+newMachTraining.length,machine:c0,site:c1,dateFrom:String(row[2]||'').trim(),dateTo:String(row[3]||'').trim(),plan:'',attendees_list:[],attendees:{}};newMachTraining.push(existing);}
-                      var attName=String(row[4]||'').trim();
-                      if(attName&&attName!=='—'&&attName!=='Attendee'){
-                        if(existing.attendees_list.indexOf(attName)<0)existing.attendees_list.push(attName);
-                        existing.attendees[attName]={status:String(row[5]||'').trim(),feedback:String(row[6]||'').trim()};
-                        imported++;
+                if(name==='machine training'){
+                  var newMachTraining=[], current=null, inPlan=false;
+                  rowData.slice(1).forEach(function(row){
+                    var c0=String(row[0]||''), c1=String(row[1]||'');
+                    if(c0==='Machine')return;
+                    if(c0==='Training Plan:'){inPlan=true;return;}
+                    // The group header has "Attendees:" in E; it is not an attendee.
+                    if(c0&&String(row[4]||'').indexOf('Attendees: ')===0){
+                      current={id:'mt_imp_'+Date.now()+'_'+newMachTraining.length,machine:c0,site:c1,dateFrom:String(row[2]||''),dateTo:String(row[3]||''),plan:'',attendees_list:[],attendees:{}};
+                      newMachTraining.push(current);inPlan=false;imported++;return;
+                    }
+                    if(!current)return;
+                    if(inPlan&&!c0&&c1){current.plan+=(current.plan?'\n':'')+c1;return;}
+                    if(c0===current.machine&&!inPlan){
+                      var attName=String(row[4]||'');
+                      if(attName&&attName!=='—'){
+                        current.attendees_list.push(attName);
+                        current.attendees[attName]={status:String(row[5]||''),feedback:String(row[6]||'')};
                       }
-                    } else if(!c0&&c1&&newMachTraining.length>0){
-                      var last=newMachTraining[newMachTraining.length-1];
-                      last.plan+=(last.plan?'\n':'')+c1;
                     }
                   });
-                  if(newMachTraining.length>0)appState.machTraining=newMachTraining;
+                  if(newMachTraining.length)state.machTraining=carry(state.machTraining,newMachTraining,'machine');
                 }
               });
-              try{localStorage.removeItem('sess_fix_13nov26');}catch(e){}
-              console.log('[Import] '+imported+' items. haytam pct:', JSON.stringify(appState.haytam&&appState.haytam.pct||{}));
-              // Save full state including sessions to localStorage
-              try{
-                var fullSave=JSON.stringify(appState);
-                localStorage.setItem(SK,fullSave);
-                localStorage.setItem(SK+'_bk',fullSave);
-                sessionStorage.setItem(SK+'_session',fullSave);
-              }catch(e){}
-              _guardState();
-              console.log('[Import] FIREBASE_READY='+FIREBASE_READY+' firebaseDB='+!!firebaseDB+' imported='+imported);
-              // Save to localStorage immediately
-              try{var fs=JSON.stringify(appState);localStorage.setItem(SK,fs);localStorage.setItem(SK+'_bk',fs);sessionStorage.setItem(SK+'_session',fs);}catch(e){}
-              // Block live listener
-              window._importLock=true;
-              window._lt=Date.now();
-              console.log('[Import] BEFORE guardState h1='+JSON.stringify(appState.haytam&&appState.haytam.pct&&appState.haytam.pct.h1));
-              _guardState();
-              console.log('[Import] AFTER guardState h1='+JSON.stringify(appState.haytam&&appState.haytam.pct&&appState.haytam.pct.h1));
-              try{render();}catch(e){}
-              try{applyUserSession();}catch(e){}
-              // Save to Firebase in background
-              if(FIREBASE_READY&&firebaseDB){
-                var fbPayload=Object.assign({},appState);
-                delete fbPayload.sessions;
-                // Write each person's data individually to avoid full overwrite issues
-                var saves=[];
-                ['haytam','garold','michael','samer'].forEach(function(pid){
-                  if(fbPayload[pid])saves.push(firebaseDB.ref('appState/'+pid).set(fbPayload[pid]));
-                });
-                if(fbPayload.amir)saves.push(firebaseDB.ref('appState/amir').set(fbPayload.amir));
-                if(fbPayload.machTraining)saves.push(firebaseDB.ref('appState/machTraining').set(fbPayload.machTraining));
-                if(fbPayload.myTasks)saves.push(firebaseDB.ref('appState/myTasks').set(fbPayload.myTasks));
-                Promise.all(saves).then(function(){
-                  console.log('[Import] All Firebase paths saved OK');
-                  window._importLock=false;
-                  alert('✅ Imported! '+imported+' items updated.');
-                }).catch(function(e){
-                  console.error('[Import] Firebase error:',e.message);
-                  window._importLock=false;
-                  alert('✅ Imported '+imported+' items (saved locally).\nFirebase: '+e.message);
-                });
-              } else {
-                window._importLock=false;
-                alert('✅ Imported '+imported+' items (offline - no Firebase).');
-              }
-            });
-          });
-        });
-      }catch(err){console.error('Import error:',err);alert('Import failed: '+err.message);}
-    };
-    reader.readAsArrayBuffer(file);
-  }
-  if(typeof JSZip==='undefined'){
-    var s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload=run;document.head.appendChild(s);
-  } else {run();}
-}
 
+  return imported;
+}
+async function _commitExcelState(next){
+  // Retain the pre-import state in a separate recovery slot before changing data.
+  localStorage.setItem(SK+'_before_import',JSON.stringify(appState));
+  next._excelImportedAt=Date.now();
+  window._importLock=true;window._lt=Date.now();
+  if(typeof saveTimer!=='undefined')clearTimeout(saveTimer);
+  try{
+    appState=next;_guardState();
+    var data=JSON.stringify(appState);
+    localStorage.setItem(SK,data);localStorage.setItem(SK+'_bk',data);sessionStorage.setItem(SK+'_session',data);
+    var em=document.getElementById('app-data');if(em)em.textContent=data;
+    render();if(currentUser)applyUserSession();
+    if(FIREBASE_READY&&firebaseDB){
+      try{await firebaseDB.ref('appState').update(JSON.parse(data));}
+      catch(error){return 'Saved locally. Cloud save failed: '+error.message;}
+    }
+    return FIREBASE_READY&&firebaseDB?'Saved locally and to Firebase.':'Saved locally (offline).';
+  }finally{window._importLock=false;}
+}
+async function importFromFullExcel(input){
+  var file=input.files[0];if(!file)return;input.value='';
+  try{
+    if(typeof JSZip==='undefined')await new Promise(function(resolve,reject){
+      var script=document.createElement('script');script.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      script.onload=resolve;script.onerror=function(){reject(new Error('Could not load JSZip. Check internet connection.'));};document.head.appendChild(script);
+    });
+    var sheets=await _readExcelSheets(await file.arrayBuffer());
+    var next=JSON.parse(JSON.stringify(appState)), count=_applyExcelSheets(sheets,next);
+    if(!count)throw new Error('No matching data rows found. Use an Excel file exported from this app.');
+    var status=await _commitExcelState(next);
+    alert('Imported '+count+' records. '+status);
+  }catch(error){console.error('Excel import failed:',error);alert('Import failed: '+error.message);}
+}
 
 function exportData(){
   try{
@@ -2704,11 +2659,11 @@ function importData(input){
   reader.onload = function(e){
     try{
       var data = JSON.parse(e.target.result);
-      if(!data.appState){
+      if(!data.appState&&!data.amir&&!data.haytam){
         alert('❌ Invalid backup file. Please use a file exported from this app.');
         return;
       }
-      appState = data.appState;
+      appState = data.appState || data;
       _guardState();
       // Save to localStorage immediately
       localStorage.setItem(SK, JSON.stringify(appState));
@@ -2968,141 +2923,22 @@ function _guardState(){
 
 }
 function loadState(callback){
-  // Step 1: Always start with embedded data (known good baseline)
-  var appStateBase = {};
-  try{
-    var emEl=document.getElementById('app-data');
-    if(emEl){
-      var emData=JSON.parse(emEl.textContent.trim());
-      if(emData&&Object.keys(emData).length>0) appStateBase=emData;
-    }
-  }catch(e){}
-
-  // Step 2: Try to merge Firebase progress data on top
-  if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length&&FIREBASE_READY&&firebaseDB){
-    firebaseDB.ref("appState").once("value").then(function(snap){
-      // Smart restore: if Firebase data looks corrupted/empty, restore from embedded
-      function _countData(d){
-        if(!d)return 0;
-        var score=0;
-        var sess=d.sessions?Object.values(d.sessions):[];
-        // Check session validity - sessions should have real titles not engineer notes
-        var validSessions=sess.filter(function(s){
-          if(!s||!s.title)return false;
-          var t=s.title;
-          // Invalid if looks like engineer goal notes got imported as sessions
-          if(t.indexOf('Training was scheduled')>=0)return false;
-          if(t.indexOf('He reached level')>=0)return false;
-          if(t.indexOf('DC machine advanced training')>=0&&t.length<60)return false;
-          return true;
-        });
-        score+=validSessions.length*10;
-        var hpct=d.haytam&&d.haytam.pct?Object.keys(d.haytam.pct).length:0;
-        score+=hpct;
-        var spct=d.samer&&d.samer.pct?Object.keys(d.samer.pct).length:0;
-        score+=spct;
-        var mpct=d.michael&&d.michael.pct?Object.keys(d.michael.pct).length:0;
-        score+=mpct;
-        var mach=d.machines?Object.values(d.machines).length:0;
-        score+=mach*2;
-        return score;
-      }
-      var fbData=snap.val();
-      // Sessions: load from embedded HTML, but prefer localStorage if it has more sessions
-      try{
-        var SESSION_FIX_KEY='sess_fix_13nov26';
-        if(true){
-          var correctSessions=[{"id": "sess_001", "title": "Validation team introduction", "presenter": "Yigal Vainshtein", "date": "2026-11-04", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_002", "title": "CSUB Assembly & Ceramic Components Introduction", "presenter": "Timna", "date": "2026-11-01", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Michael", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_003", "title": "Epoxy Fundamentals", "presenter": "Nuphar", "date": "2026-09-28", "time": "1 hr", "agenda": "", "attendees": ["Yousef", "Garold", "Michael", "Samer", "Amir"], "done": true, "link": ""}, {"id": "sess_004", "title": "Agile system introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_005", "title": "PE team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_006", "title": "Quality team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}, {"id": "sess_007", "title": "Thermal team introduction", "presenter": "", "date": "", "time": "1 hr", "agenda": "", "attendees": [], "done": false, "link": ""}];
-          // Check localStorage for more recent sessions (added via app)
-          try{
-            var lsRawSess=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk');
-            if(lsRawSess){
-              var lsParsed=JSON.parse(lsRawSess);
-              var lsSessions=lsParsed.sessions?Object.values(lsParsed.sessions):[];
-              var validLsSessions=lsSessions.filter(function(s){return s&&s.title&&s.title.indexOf('Training was scheduled')<0&&s.title.indexOf('He reached')<0;});
-              if(validLsSessions.length>correctSessions.length)correctSessions=validLsSessions;
-            }
-          }catch(e){}
-          if(fbData)fbData.sessions=correctSessions;
-          console.log('[Sessions] Loaded',correctSessions.length,'sessions');
-        }
-      }catch(e){console.error('[Fix] session restore failed:',e);}
-      var fbScore=_countData(fbData);
-      // Load localStorage backup
-      var lsData=null;
-      try{
-        var lsRaw=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk')||sessionStorage.getItem(SK+'_session');
-        if(lsRaw)lsData=JSON.parse(lsRaw);
-      }catch(e){}
-      var lsScore=_countData(lsData);
-      // Load embedded backup
-      var emData=null;try{var emEl=document.getElementById('app-data');if(emEl)emData=JSON.parse(emEl.textContent.trim());}catch(e){}
-      var emScore=_countData(emData);
-      console.log('[DataLoad] Firebase:'+fbScore+' localStorage:'+lsScore+' embedded:'+emScore);
-      // Use the richest source
-      var bestData=fbData;var bestScore=fbScore;var bestSrc='Firebase';
-      if(lsScore>bestScore){bestData=lsData;bestScore=lsScore;bestSrc='localStorage';}
-      if(emScore>bestScore){bestData=emData;bestScore=emScore;bestSrc='embedded';}
-      console.log('[DataLoad] Using: '+bestSrc);
-      if(bestSrc!=='Firebase'&&bestData){
-        Object.assign(appState,bestData);
-        _guardState();
-        // Push best data to Firebase to fix it
-        firebaseDB.ref("appState").update(appState);
-        if(callback)callback();
-        return;
-      }
-      var fbData=snap.val();
-      if(fbData&&Object.keys(fbData).length>2){
-        // Merge: use embedded as base, overlay Firebase progress fields
-        appState = appStateBase;
-        var progressFields=['items','notes','pct','site','siteNote','teamScore','teamComment','empComment','mgrComment','deletedItems','focal2026','yousefMonthSummary','monthSummary','amirMonthNote','mgrMonthNotes','mgrNotes','amirNotes','_deletedTasks','_amirCustomTasks','_allItems','myTasks'];
-        ['haytam','garold','michael','samer'].forEach(function(pid){
-          if(fbData[pid]){
-            if(!appState[pid])appState[pid]={};
-            progressFields.forEach(function(f){
-              if(fbData[pid][f]!==undefined)appState[pid][f]=fbData[pid][f];
-            });
-          }
-        });
-        // Merge amir data
-        if(fbData.amir){
-          if(!appState.amir)appState.amir={};
-          Object.keys(fbData.amir).forEach(function(k){
-            appState.amir[k]=fbData.amir[k];
-          });
-        }
-        // Merge other root keys from Firebase
-        ['vacations','machines','machineScores','machineComments','machineGoals','openARs','xsections'].forEach(function(k){
-          if(fbData[k]!==undefined)appState[k]=fbData[k];
-        });
-      } else {
-        appState = appStateBase;
-      }
-      // Always restore sessions from embedded/localStorage - never from Firebase
-      try{
-        var embSess=[];
-        try{var emElS=document.getElementById('app-data');if(emElS){var emDS=JSON.parse(emElS.textContent.trim());if(emDS.sessions)embSess=emDS.sessions;}}catch(e){}
-        var lsSess=[];
-        try{var lsRawS=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk');if(lsRawS){var lsPS=JSON.parse(lsRawS);if(lsPS.sessions&&Array.isArray(lsPS.sessions))lsSess=lsPS.sessions;}}catch(e){}
-        // Use whichever has more valid sessions
-        var validSess=function(s){return s&&s.title&&s.title.indexOf('Training was scheduled')<0&&s.title.indexOf('He reached')<0;};
-        var goodEmb=embSess.filter(validSess);
-        var goodLs=lsSess.filter(validSess);
-        appState.sessions=goodLs.length>=goodEmb.length?goodLs:goodEmb;
-      }catch(e){}
-      _guardState();if(callback)callback();
-    }).catch(function(){
-      appState = appStateBase;
-      _guardState();if(callback)callback();
-    });
-    return;
-  }
-  // No Firebase - use embedded
-  appState = appStateBase;
-  _guardState();if(callback)callback();
+  var embedded={},local=null;
+  try{var el=document.getElementById('app-data');if(el)embedded=JSON.parse(el.textContent);}catch(e){}
+  try{var raw=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk')||sessionStorage.getItem(SK+'_session');if(raw)local=JSON.parse(raw);}catch(e){}
+  function finish(data){appState=data||local||embedded;_guardState();if(callback)callback();}
+  if(FIREBASE_READY&&firebaseDB){
+    firebaseDB.ref('appState').once('value').then(function(snap){
+      var cloud=snap.val();
+      if(!cloud)return finish(local||embedded);
+      // An import saved offline takes priority until it reaches the cloud.
+      if(local&&(local._excelImportedAt||0)>(cloud._excelImportedAt||0))return finish(local);
+      var merged=cloud._excelImportedAt?Object.assign({sessions:[],vacations:{},openARs:[],myTasks:{items:[],focal:{}},machTraining:[]},cloud):Object.assign({},embedded,cloud);
+      if(!cloud._excelImportedAt&&!Object.prototype.hasOwnProperty.call(cloud,'sessions'))merged.sessions=(local&&local.sessions)||embedded.sessions||[];
+      finish(merged);
+    }).catch(function(){finish(local||embedded);});
+  }else finish(local||embedded);
 }
-
 
 var saveTimer;
 function _persistCustomItems(){
@@ -3174,7 +3010,7 @@ function saveStateNow(){
         // Manager: use update not set, to avoid full overwrite race conditions
         // Exclude sessions - they live in embedded HTML, not Firebase
         var saveData=Object.assign({},appState);
-        delete saveData.sessions;
+        // Sessions are included so imports survive reloads on every device.
         savePromise=saveRef.update(saveData);
       }
       savePromise.then(function(){
@@ -6504,7 +6340,7 @@ function _startApp(){
         var savedSessions=appState.sessions||[];
         try{var lsRawLive=localStorage.getItem(SK);if(lsRawLive){var lsParsedLive=JSON.parse(lsRawLive);if(lsParsedLive.sessions&&lsParsedLive.sessions.length>savedSessions.length)savedSessions=lsParsedLive.sessions;}}catch(e){}
         var ni=JSON.stringify(d),ci=JSON.stringify(appState);
-        if(ni!==ci){appState=d;appState.sessions=savedSessions;_guardState();try{render();}catch(e){}if(currentUser)applyUserSession();
+        if(ni!==ci){appState=d;if(!Object.prototype.hasOwnProperty.call(d,'sessions'))appState.sessions=savedSessions;_guardState();try{render();}catch(e){}if(currentUser)applyUserSession();
         try{var l=document.getElementById("ls");if(l){l.textContent="Live update "+new Date().toLocaleTimeString();l.style.color="#76b900";setTimeout(function(){try{var x=document.getElementById("ls");if(x)x.style.color="";}catch(e){}},3000);}}catch(e){}}
       }
     });
