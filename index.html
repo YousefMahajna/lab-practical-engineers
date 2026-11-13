@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26b';
+var BUILD_TS='14.11.26c';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2613,26 +2613,39 @@ function importFromFullExcel(input){
               }catch(e){}
               _guardState();
               console.log('[Import] FIREBASE_READY='+FIREBASE_READY+' firebaseDB='+!!firebaseDB+' imported='+imported);
-              // Always save to localStorage first
-              try{var fs=JSON.stringify(appState);localStorage.setItem(SK,fs);localStorage.setItem(SK+'_bk',fs);}catch(e){}
+              // Save to localStorage immediately
+              try{var fs=JSON.stringify(appState);localStorage.setItem(SK,fs);localStorage.setItem(SK+'_bk',fs);sessionStorage.setItem(SK+'_session',fs);}catch(e){}
+              // Block live listener
+              window._importLock=true;
+              window._lt=Date.now();
+              // Render immediately with new data
+              _guardState();
+              try{render();}catch(e){}
+              try{applyUserSession();}catch(e){}
+              // Save to Firebase in background
               if(FIREBASE_READY&&firebaseDB){
-                window._importLock=true;
                 var fbPayload=Object.assign({},appState);
                 delete fbPayload.sessions;
-                firebaseDB.ref('appState').set(fbPayload).then(function(){
-                  console.log('[Import] Firebase OK - reloading');
-                  alert('Imported! '+imported+' items updated. Page reloading...');
-                  location.reload();
-                }).catch(function(e){
+                // Write each person's data individually to avoid full overwrite issues
+                var saves=[];
+                ['haytam','garold','michael','samer'].forEach(function(pid){
+                  if(fbPayload[pid])saves.push(firebaseDB.ref('appState/'+pid).set(fbPayload[pid]));
+                });
+                if(fbPayload.amir)saves.push(firebaseDB.ref('appState/amir').set(fbPayload.amir));
+                if(fbPayload.machTraining)saves.push(firebaseDB.ref('appState/machTraining').set(fbPayload.machTraining));
+                if(fbPayload.myTasks)saves.push(firebaseDB.ref('appState/myTasks').set(fbPayload.myTasks));
+                Promise.all(saves).then(function(){
+                  console.log('[Import] All Firebase paths saved OK');
                   window._importLock=false;
+                  alert('✅ Imported! '+imported+' items updated.');
+                }).catch(function(e){
                   console.error('[Import] Firebase error:',e.message);
-                  alert('Import saved locally. Firebase error: '+e.message+'\nReloading...');
-                  location.reload();
+                  window._importLock=false;
+                  alert('✅ Imported '+imported+' items (saved locally).\nFirebase: '+e.message);
                 });
               } else {
-                console.warn('[Import] Firebase not ready - localStorage only');
-                alert('Imported '+imported+' items (offline mode). Reloading...');
-                location.reload();
+                window._importLock=false;
+                alert('✅ Imported '+imported+' items (offline - no Firebase).');
               }
             });
           });
