@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26f';
+var BUILD_TS='14.11.26h';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2158,18 +2158,17 @@ function _buildXlsx(){
   }
   function hRow(ls){return{cells:ls.map(function(l){return H(l);}),h:22};}
   function titleRow(lbl,span){var cells=[cS(lbl,ST.title)];for(var _i=1;_i<span;_i++)cells.push(cS('',ST.blank));return{cells:cells,h:20};}
-  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v),ST.norm);}),h:16};}
+  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v).replace(/\n/g,' | '),ST.norm);}),h:18};}
   function mhRow(lbl){
     var r={cells:[cS(lbl,ST.monthH)],h:22,merge:[[0,NC-1]]};
     for(var i=1;i<NC;i++)r.cells.push(cB(ST.monthH));
     return r;
   }
   function sRow(lbl,val,note,nTs){
-    // label | val+fill | ts | note(merged wide) | blank
-    var noteW=CW.slice(NC-3,NC-1).reduce(function(a,b){return a+b;},0)||50;
-    var r={cells:[cS(lbl,ST.secH),cS(val||'',ST.secH)],h:estH([note||''],[noteW],18),merge:[[NC-2,NC-2]]};
+    var noteFlat2=(note||'').replace(/\n/g,' | ');
+    var r={cells:[cS(lbl,ST.secH),cS(val||'',ST.secH)],h:18,merge:[[NC-2,NC-2]]};
     for(var i=2;i<NC-3;i++)r.cells.push(cB(ST.secH));
-    r.cells.push(cS(nTs||'',ST.ts),cS(note||'',ST.note),cB(ST.blank));
+    r.cells.push(cS(nTs||'',ST.ts),cS(noteFlat2,ST.note),cB(ST.blank));
     return r;
   }
   function nRow(lbl,val,ts,sty){
@@ -2217,7 +2216,7 @@ function _buildXlsx(){
         var note=String(ps.notes&&ps.notes[it.id]||'');
         var noteTs=String(ps.notesTs&&ps.notesTs[it.id]||'');
         var sf=done?ST.done:ST.norm;var sc=done?ST.doneC:ST.normC;
-        rows.push({cells:[cS(it.cat,sf),cS(it.task,sf),cS(it.mentor,sf),cS(it.obj,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(String(ps.status&&ps.status[it.id]||''),ST.ts),cS(note,ST.note),cS(noteTs,ST.ts),cB(ST.blank)],h:estH([it.task,it.obj,note],[CW_AMIR[1],CW_AMIR[3],CW_AMIR[7]],13)});
+        rows.push({cells:[cS(it.cat,sf),cS(it.task,sf),cS(it.mentor,sf),cS(it.obj,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(String(ps.status&&ps.status[it.id]||''),ST.ts),cS(note.replace(/\n/g,' | '),ST.note),cS(noteTs,ST.ts),cB(ST.blank)],h:18});
         td+=done?1:0;ti++;
       });
       var mgN=String((ps.monthSummary&&ps.monthSummary[mg.month])||'');
