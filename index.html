@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26l';
+var BUILD_TS='13.11.26m';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2478,6 +2478,7 @@ function importFromFullExcel(input){
                 if(!sh)return;
                 var name=sh.name.trim().toLowerCase();
                 if(name==='sessions'){
+                  // Export cols: A=Title, B=Presenter, C=Date, D=Duration, E=Agenda, F=Attendees, G=Done
                   var newSessions=[];
                   var rowData2=[];
                   (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
@@ -2493,9 +2494,21 @@ function importFromFullExcel(input){
                     rowData2.push(cells);
                   });
                   rowData2.forEach(function(row,ri){
-                    if(ri<2||!row[0]||row[0]==='Title')return;
+                    // Skip title rows, header row
+                    if(ri<2)return;
+                    if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0)return;
                     if(!row[0].trim())return;
-                    newSessions.push({id:'sess_imp_'+ri,title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:row[6]==='Yes',link:''});
+                    newSessions.push({
+                      id:'sess_imp_'+Date.now()+'_'+ri,
+                      title:row[0]||'',
+                      presenter:row[1]||'',
+                      date:row[2]||'',
+                      time:row[3]||'',
+                      agenda:row[4]||'',
+                      attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),
+                      done:(row[6]||'').trim()==='Yes',
+                      link:''
+                    });
                     imported++;
                   });
                   if(newSessions.length>0)appState.sessions=newSessions;
