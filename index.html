@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26v';
+var BUILD_TS='13.11.26w';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3042,6 +3042,18 @@ function loadState(callback){
       } else {
         appState = appStateBase;
       }
+      // Always restore sessions from embedded/localStorage - never from Firebase
+      try{
+        var embSess=[];
+        try{var emElS=document.getElementById('app-data');if(emElS){var emDS=JSON.parse(emElS.textContent.trim());if(emDS.sessions)embSess=emDS.sessions;}}catch(e){}
+        var lsSess=[];
+        try{var lsRawS=localStorage.getItem(SK)||localStorage.getItem(SK+'_bk');if(lsRawS){var lsPS=JSON.parse(lsRawS);if(lsPS.sessions&&Array.isArray(lsPS.sessions))lsSess=lsPS.sessions;}}catch(e){}
+        // Use whichever has more valid sessions
+        var validSess=function(s){return s&&s.title&&s.title.indexOf('Training was scheduled')<0&&s.title.indexOf('He reached')<0;};
+        var goodEmb=embSess.filter(validSess);
+        var goodLs=lsSess.filter(validSess);
+        appState.sessions=goodLs.length>=goodEmb.length?goodLs:goodEmb;
+      }catch(e){}
       _guardState();if(callback)callback();
     }).catch(function(){
       appState = appStateBase;
@@ -6446,10 +6458,11 @@ function _startApp(){
       if(window._importLock)return; // suppress during import
       var d=snap.val();
       if(d&&currentUser&&Date.now()-_lt>5000){
-        // Restore sessions from localStorage since they're not in Firebase
-        try{var lsRaw=localStorage.getItem(SK);if(lsRaw){var lsParsed=JSON.parse(lsRaw);if(lsParsed.sessions&&lsParsed.sessions.length>0)d.sessions=lsParsed.sessions;}}catch(e){}
+        // Always preserve sessions - they live in localStorage/embedded, not Firebase
+        var savedSessions=appState.sessions||[];
+        try{var lsRawLive=localStorage.getItem(SK);if(lsRawLive){var lsParsedLive=JSON.parse(lsRawLive);if(lsParsedLive.sessions&&lsParsedLive.sessions.length>savedSessions.length)savedSessions=lsParsedLive.sessions;}}catch(e){}
         var ni=JSON.stringify(d),ci=JSON.stringify(appState);
-        if(ni!==ci){appState=d;_guardState();try{render();}catch(e){}if(currentUser)applyUserSession();
+        if(ni!==ci){appState=d;appState.sessions=savedSessions;_guardState();try{render();}catch(e){}if(currentUser)applyUserSession();
         try{var l=document.getElementById("ls");if(l){l.textContent="Live update "+new Date().toLocaleTimeString();l.style.color="#76b900";setTimeout(function(){try{var x=document.getElementById("ls");if(x)x.style.color="";}catch(e){}},3000);}}catch(e){}}
       }
     });
