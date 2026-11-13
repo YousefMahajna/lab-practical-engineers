@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26q';
+var BUILD_TS='13.11.26r';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2477,7 +2477,7 @@ function importFromFullExcel(input){
               sheets.forEach(function(sh){
                 if(!sh)return;
                 var name=sh.name.trim().toLowerCase();
-                if(name==='sessions'){
+                if(name==='sessions'&&sh.xml.indexOf('Lab Sessions')>=0){
                   // Export cols: A=Title, B=Presenter, C=Date, D=Duration, E=Agenda, F=Attendees, G=Done
                   var newSessions=[];
                   var rowData2=[];
@@ -2513,7 +2513,7 @@ function importFromFullExcel(input){
                   });
                   if(newSessions.length>0)appState.sessions=newSessions;
                 }
-                if(name==='my tasks'){
+                if(name==='my tasks'&&sh.xml.indexOf('My Tasks')>=0){
                   var newTasks=[];
                   var rowData3=[];
                   (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
@@ -2537,6 +2537,8 @@ function importFromFullExcel(input){
                   if(newTasks.length>0){if(!appState.myTasks)appState.myTasks={};appState.myTasks.items=newTasks;}
                 }
               });
+              // Reset session fix flag so it re-runs and fixes any corruption
+              try{localStorage.removeItem('sess_fix_13nov26');}catch(e){}
               _guardState();
               // Force Firebase save directly
               if(FIREBASE_READY&&firebaseDB){
