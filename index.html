@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26';
+var BUILD_TS='14.11.26b';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2393,9 +2393,11 @@ function importFromFullExcel(input){
   function run(){
     var reader=new FileReader();
     reader.onload=function(e){
+      console.log('[Import] File loaded, size='+e.target.result.byteLength);
       try{
         var zip=new JSZip();
         zip.loadAsync(e.target.result).then(function(z){
+          console.log('[Import] ZIP opened, files='+Object.keys(z.files).length);
           var ssF=z.file('xl/sharedStrings.xml');
           var wbF=z.file('xl/workbook.xml');
           var wbRF=z.file('xl/_rels/workbook.xml.rels');
@@ -5323,9 +5325,14 @@ function syncVacationsFromOutlook(){
   var found=0;
   var errors=[];
 
+  // Direct API calls are blocked by CORS from GitHub Pages
+  // Show message directing user to use Claude chat for sync
+  if(btn){btn.disabled=false;btn.textContent='⚠️ Use Claude chat to sync';}
+  alert('Outlook sync cannot run directly from the app due to browser security restrictions (CORS).\n\nTo sync vacations:\n1. Go to Claude chat\n2. Ask: "Sync vacation data from Outlook calendar for my team"\n3. Claude will read the calendars and update the app');
+  return;
+
   PIDS.forEach(function(pid){
     var email=TEAM_EMAILS[pid];
-    // Call Microsoft 365 MCP via fetch to the Anthropic API
     fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
