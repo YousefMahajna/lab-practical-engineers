@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26m';
+var BUILD_TS='13.11.26n';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2875,7 +2875,17 @@ function loadState(callback){
         if(!d)return 0;
         var score=0;
         var sess=d.sessions?Object.values(d.sessions):[];
-        score+=sess.length*10;
+        // Check session validity - sessions should have real titles not engineer notes
+        var validSessions=sess.filter(function(s){
+          if(!s||!s.title)return false;
+          var t=s.title;
+          // Invalid if looks like engineer goal notes got imported as sessions
+          if(t.indexOf('Training was scheduled')>=0)return false;
+          if(t.indexOf('He reached level')>=0)return false;
+          if(t.indexOf('DC machine advanced training')>=0&&t.length<60)return false;
+          return true;
+        });
+        score+=validSessions.length*10;
         var hpct=d.haytam&&d.haytam.pct?Object.keys(d.haytam.pct).length:0;
         score+=hpct;
         var spct=d.samer&&d.samer.pct?Object.keys(d.samer.pct).length:0;
