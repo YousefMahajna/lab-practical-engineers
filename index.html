@@ -5175,80 +5175,215 @@ var TEAM_EMAILS={
   amir:'adiab@nvidia.com'
 };
 
+// Outlook calendar reader. Tokens stay in memory and are never added to appState.
+var _olSession={token:'',expires:0,pending:[],warnings:[],busy:false};
+function _olConfig(){try{return JSON.parse(localStorage.getItem('lab_outlook_config2')||'{}');}catch(e){return {};}}
+function _olEscape(value){return String(value==null?'':value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function _olCanImport(){return currentUser&&currentUser.role==='manager';}
 function syncVacationsFromOutlook(){
-  var btn=document.getElementById('sync-outlook-btn');
-  if(btn){btn.textContent='⏳ Syncing...';btn.disabled=true;}
-
-  var PIDS=['yousef','haytam','garold','michael','samer','amir'];
-  var now=new Date();
-  var yearStart=new Date(now.getFullYear(),0,1).toISOString().split('T')[0];
-  var yearEnd=new Date(now.getFullYear(),11,31).toISOString().split('T')[0];
-
-  var completed=0;
-  var found=0;
-  var errors=[];
-
-  // Direct API calls are blocked by CORS from GitHub Pages
-  // Show message directing user to use Claude chat for sync
-  if(btn){btn.disabled=false;btn.textContent='⚠️ Use Claude chat to sync';}
-  alert('Outlook sync cannot run directly from the app due to browser security restrictions (CORS).\n\nTo sync vacations:\n1. Go to Claude chat\n2. Ask: "Sync vacation data from Outlook calendar for my team"\n3. Claude will read the calendars and update the app');
-  return;
-
-  PIDS.forEach(function(pid){
-    var email=TEAM_EMAILS[pid];
-    fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        system:'You are a vacation data extractor. Given calendar events JSON, return ONLY a JSON array of date strings (YYYY-MM-DD) that are vacation or OOO days for the person. No other text.',
-        messages:[{role:'user',content:'Search the calendar for '+pid+' ('+email+') between '+yearStart+' and '+yearEnd+'. Find ALL absence events including: Vacation, OOO, Out of Office, Sick, Child Sick, Personal Day, BT (Business Trip), Day Off, Holiday, Leave, חופשה, מחלה, יום חופש, נסיעת עסקים. Return ONLY a JSON object with two arrays: {"vac":["YYYY-MM-DD",...],"trip":["YYYY-MM-DD",...]} where vac is vacation/sick/OOO/personal and trip is business trips only. No other text.'}],
-        mcp_servers:[{type:'url',url:'https://microsoft365.mcp.claude.com/mcp',name:'microsoft365'}]
-      })
-    })
-    .then(function(r){return r.json();})
-    .then(function(d){
-      try{
-        var text=d.content.filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
-        var clean=text.replace(/```json|```/g,'').trim();
-        var parsed=JSON.parse(clean);
-        // Handle both {vac:[],trip:[]} and plain array formats
-        var vacDates=Array.isArray(parsed)?parsed:(parsed.vac||[]);
-        var tripDates=Array.isArray(parsed)?[]:(parsed.trip||[]);
-        vacDates.forEach(function(dt){
-          if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
-          if(appState.vacations[dt].vac.indexOf(pid)<0){appState.vacations[dt].vac.push(pid);found++;}
-        });
-        tripDates.forEach(function(dt){
-          if(!appState.vacations[dt])appState.vacations[dt]={vac:[],trip:[]};
-          if(appState.vacations[dt].trip.indexOf(pid)<0){appState.vacations[dt].trip.push(pid);found++;}
-        });
-      }catch(e){errors.push(pid);}
-      completed++;
-      if(completed===PIDS.length){_syncDone(btn,found,errors);}
-    })
-    .catch(function(){
-      errors.push(pid);completed++;
-      if(completed===PIDS.length){_syncDone(btn,found,errors);}
-    });
-  });
+  if(!_olCanImport()){alert('Sign in as manager to import team absences.');return;}
+  if(document.getElementById('outlook-dialog2'))return;
+  var cfg=_olConfig(),year=new Date().getFullYear();
+  var dialog=document.createElement('div');dialog.id='outlook-dialog2';dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Outlook absence sync');
+  dialog.style.cssText='position:fixed;inset:0;background:#000b;z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
+  dialog.innerHTML='<div style="background:#171717;color:#eee;border:1px solid #465726;border-radius:10px;width:900px;max-width:100%;max-height:90vh;overflow:auto;padding:22px">'+
+    '<div style="display:flex;justify-content:space-between;gap:16px"><h2 style="margin:0">Sync absences from Outlook</h2><button id="ol-close2" type="button" aria-label="Close">✕</button></div>'+
+    '<p>Read vacation, out-of-office, leave, and business-trip events. Review the results before adding them to the team calendar.</p>'+
+    '<details id="ol-settings2" '+(!cfg.clientId?'open':'')+'><summary>Microsoft connection settings</summary>'+
+    '<p>Use the application (client) ID from your Microsoft Entra app registration. Your email is the sign-in account.</p>'+
+    '<label style="display:block;margin:8px 0">Application (client) ID <input id="ol-client2" style="width:100%;box-sizing:border-box" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></label>'+
+    '<label style="display:block;margin:8px 0">Directory (tenant) ID <input id="ol-tenant2" style="width:100%;box-sizing:border-box" placeholder="organizations"></label>'+
+    '<label style="display:block;margin:8px 0">Sign-in email <input id="ol-email2" type="email" style="width:100%;box-sizing:border-box"></label>'+
+    '<p>Register this exact address as a <strong>Single-page application</strong> redirect URI:<br><code id="ol-redirect2" style="word-break:break-all"></code></p>'+
+    '<p>Read-only Microsoft Graph permissions: User.Read, Calendars.Read, Calendars.Read.Shared. Calendar sharing must already allow you to read each colleague’s events.</p></details>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:14px;margin:16px 0"><label>From <input id="ol-start2" type="date" value="'+year+'-01-01"></label><label>Through <input id="ol-end2" type="date" value="'+year+'-12-31"></label></div>'+
+    '<label><input id="ol-own2" type="checkbox" checked> My calendar, including absence invitations</label>'+
+    '<fieldset style="margin:12px 0;padding:12px;border:1px solid #444"><legend>Shared team calendars</legend>'+Object.keys(TEAM_EMAILS).map(function(pid){return '<label style="display:inline-block;margin:5px 12px 5px 0"><input class="ol-person2" type="checkbox" value="'+pid+'" checked> '+_olEscape(pid.charAt(0).toUpperCase()+pid.slice(1))+'</label>';}).join('')+'</fieldset>'+
+    '<button id="ol-read2" type="button" style="padding:10px 18px;background:#76b900;color:#111;border:0;border-radius:5px;font-weight:bold">Connect &amp; find absences</button> '+
+    '<button id="ol-disconnect2" type="button">Disconnect</button>'+
+    '<p id="ol-status2" role="status" style="white-space:pre-wrap"></p><div id="ol-preview2"></div>'+
+    '<p style="color:#aaa;font-size:12px">Reads calendar events, including recurring occurrences. Messages that exist only in your inbox are not read. OOO and sick leave use the tracker’s Vacation category. Imported days include weekends when the Outlook event covers them.</p></div>';
+  document.body.appendChild(dialog);
+  document.getElementById('ol-client2').value=cfg.clientId||'';document.getElementById('ol-tenant2').value=cfg.tenant||'organizations';document.getElementById('ol-email2').value=cfg.email||'ymahajna@nvidia.com';
+  document.getElementById('ol-redirect2').textContent=new URL('auth2.html',location.href).href.split(/[?#]/)[0];
+  document.getElementById('ol-close2').onclick=function(){if(!_olSession.busy)dialog.remove();};
+  document.getElementById('ol-read2').onclick=_olRead;
+  document.getElementById('ol-disconnect2').onclick=function(){_olSession.token='';_olSession.expires=0;_olSession.pending=[];document.getElementById('ol-preview2').replaceChildren();_olStatus('Disconnected from Outlook in this page.');};
 }
-
-function _syncDone(btn,found,errors){
-  if(found>0){saveState();renderCalendar('cal-main');}
-  if(btn){
-    btn.disabled=false;
-    if(found>0){
-      btn.textContent='✅ Synced '+found+' days';
-      setTimeout(function(){btn.textContent='🔄 Sync from Outlook';},3000);
-    } else {
-      btn.textContent='⚠️ No data — try again';
-      setTimeout(function(){btn.textContent='🔄 Sync from Outlook';},4000);
+function _olStatus(text){var el=document.getElementById('ol-status2');if(el)el.textContent=text;}
+function _olBusy(value){_olSession.busy=value;['ol-read2','ol-close2','ol-disconnect2'].forEach(function(id){var el=document.getElementById(id);if(el)el.disabled=value;});}
+function _olBase64(bytes){var text='';new Uint8Array(bytes).forEach(function(b){text+=String.fromCharCode(b);});return btoa(text).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+async function _olSignIn(cfg,popup){
+  // Authorization code + PKCE for a public SPA; there is no client secret.
+  var verifier=_olBase64(crypto.getRandomValues(new Uint8Array(48)));
+  var challenge=_olBase64(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
+  var state=_olBase64(crypto.getRandomValues(new Uint8Array(24)));
+  var redirect=new URL('auth2.html',location.href).href.split(/[?#]/)[0];
+  var authority='https://login.microsoftonline.com/'+cfg.tenant+'/oauth2/v2.0/';
+  var scope='https://graph.microsoft.com/User.Read https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.Read.Shared';
+  var query=new URLSearchParams({client_id:cfg.clientId,response_type:'code',redirect_uri:redirect,response_mode:'query',scope:scope,state:state,code_challenge:challenge,code_challenge_method:'S256',login_hint:cfg.email||'',prompt:'select_account'});
+  var code=await new Promise(function(resolve,reject){
+    var timer,closed;
+    function done(error,code){clearTimeout(timer);clearInterval(closed);window.removeEventListener('message',receive);try{popup.close();}catch(e){}error?reject(error):resolve(code);}
+    function receive(event){
+      if(event.origin!==location.origin||event.source!==popup||!event.data||event.data.type!=='lab-outlook-auth2')return;
+      var data=event.data;if(data.state!==state)return done(new Error('Microsoft sign-in state did not match. Please retry.'));
+      if(data.error)return done(new Error(data.error_description||data.error));
+      if(!data.code)return done(new Error('Microsoft did not return an authorization code.'));
+      done(null,data.code);
     }
-  }
-  if(errors.length>0)console.warn('Sync failed for:',errors);
+    window.addEventListener('message',receive);
+    timer=setTimeout(function(){done(new Error('Sign-in timed out. Please retry.'));},180000);
+    closed=setInterval(function(){if(popup.closed)done(new Error('Sign-in window was closed.'));},800);
+    popup.location.href=authority+'authorize?'+query.toString();
+  });
+  var response=await fetch(authority+'token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cfg.clientId,grant_type:'authorization_code',code:code,redirect_uri:redirect,code_verifier:verifier,scope:scope})});
+  var token=await response.json();
+  if(!response.ok||!token.access_token)throw new Error(token.error_description||'Microsoft sign-in failed. Check the SPA redirect URI and consent.');
+  _olSession.token=token.access_token;_olSession.expires=Date.now()+(Number(token.expires_in)||3600)*1000;
 }
+async function _olGraph(path){
+  var url=new URL(path,'https://graph.microsoft.com/v1.0/');
+  if(url.origin!=='https://graph.microsoft.com')throw new Error('Unexpected Outlook pagination address.');
+  for(var attempt=0;attempt<3;attempt++){
+    var response=await fetch(url.href,{headers:{Authorization:'Bearer '+_olSession.token,Prefer:'outlook.timezone="Israel Standard Time"'}});
+    if((response.status===429||response.status===503)&&attempt<2){
+      var seconds=Number(response.headers.get('Retry-After'))||2;
+      if(seconds>30)throw new Error('Outlook is busy. Please try again in '+seconds+' seconds.');
+      _olStatus('Outlook is busy. Retrying shortly…');await new Promise(function(resolve){setTimeout(resolve,seconds*1000);});continue;
+    }
+    var data=await response.json();
+    if(!response.ok){
+      if(response.status===401){_olSession.token='';_olSession.expires=0;}
+      throw new Error(response.status===403?'Access denied. Calendar sharing or Microsoft administrator consent is required.':(data.error&&data.error.message)||'Outlook request failed ('+response.status+').');
+    }
+    return data;
+  }
+}
+async function _olPages(path){var rows=[],seen=new Set();while(path){if(seen.has(path))throw new Error('Repeated Outlook page.');seen.add(path);var data=await _olGraph(path);rows=rows.concat(data.value||[]);path=data['@odata.nextLink'];}return rows;}
+function _olPid(email){email=String(email||'').toLowerCase();return Object.keys(TEAM_EMAILS).find(function(pid){return TEAM_EMAILS[pid].toLowerCase()===email;})||'';}
+function _olType(event){
+  if(event.isCancelled||(event.responseStatus&&event.responseStatus.response==='declined'))return '';
+  var text=String(event.subject||'');
+  if(/\bBT\b|business\s+trip|business\s+travel|נסיע[הת]\s+עסקים|נסיעת\s+עבודה/i.test(text))return 'trip';
+  if(/\b(?:OOO|OOF|PTO|vacation|vacations|leave|holiday|holidays|sick)\b|out[\s-]*of[\s-]*(?:office|the\s+office)|day\s+off|חופש[ה]?|מחלה/i.test(text)||event.showAs==='oof')return 'vac';
+  return '';
+}
+function _olPerson(event,owner){
+  var names=Object.keys(TEAM_EMAILS).filter(function(pid){return new RegExp('\\b'+pid+'\\b','i').test(event.subject||'');});
+  if(names.length===1)return names[0];if(names.length>1)return '';
+  var organizer=_olPid(event.organizer&&event.organizer.emailAddress&&event.organizer.emailAddress.address);
+  if(organizer)return organizer;
+  if(event.isOrganizer||event.showAs==='oof')return owner||'';
+  return '';
+}
+function _olDayAdd(day,count){var date=new Date(day+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+count);return date.toISOString().slice(0,10);}
+function _olWallClock(value,allDay){
+  if(!value||!value.dateTime)return '';
+  var text=value.dateTime;
+  if(allDay||value.timeZone==='Israel Standard Time'||value.timeZone==='Asia/Jerusalem')return text;
+  if(value.timeZone==='UTC'||/[zZ]$|[+-]\d\d:\d\d$/.test(text)){
+    var date=new Date(text+(/[zZ]$|[+-]\d\d:\d\d$/.test(text)?'':'Z'));
+    if(isNaN(date))return '';
+    var parts={};new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).forEach(function(p){parts[p.type]=p.value;});
+    return parts.year+'-'+parts.month+'-'+parts.day+'T'+parts.hour+':'+parts.minute+':'+parts.second;
+  }
+  return '';
+}
+function _olDays(event,from,through){
+  var start=_olWallClock(event.start,event.isAllDay),end=_olWallClock(event.end,event.isAllDay);
+  if(!/^\d{4}-\d\d-\d\dT/.test(start)||!/^\d{4}-\d\d-\d\dT/.test(end)||end<=start)return [];
+  var first=start.slice(0,10),last=end.slice(0,10);
+  // Outlook all-day end dates, and timed midnight ends, are exclusive.
+  if(event.isAllDay||/^00:00:00(?:\.0+)?(?:Z|[+-]\d\d:\d\d)?$/.test(end.slice(11)))last=_olDayAdd(last,-1);
+  first=first<from?from:first;last=last>through?through:last;
+  var days=[];for(var day=first;day<=last;day=_olDayAdd(day,1)){days.push(day);if(days.length>367)throw new Error('An absence exceeds the selected date range.');}
+  return days;
+}
+function _olCandidates(events,owner,from,through){return events.map(function(event){
+  var type=_olType(event);if(!type)return null;var days=_olDays(event,from,through);if(!days.length)return null;
+  return {key:(event.iCalUId||event.id||event.subject)+'|'+(event.start&&event.start.dateTime),pid:_olPerson(event,owner),type:type,subject:event.subject||'(Private absence)',days:days,source:owner||'My calendar'};
+}).filter(Boolean);}
+async function _olRead(){
+  if(!_olCanImport()||_olSession.busy)return;
+  var cfg={clientId:document.getElementById('ol-client2').value.trim(),tenant:document.getElementById('ol-tenant2').value.trim()||'organizations',email:document.getElementById('ol-email2').value.trim()};
+  var from=document.getElementById('ol-start2').value,through=document.getElementById('ol-end2').value;
+  if(!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(cfg.clientId)){document.getElementById('ol-settings2').open=true;_olStatus('Enter the Microsoft application (client) ID. An email address is not a client ID.');return;}
+  if(!/^(organizations|common|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})$/i.test(cfg.tenant)){_olStatus('Enter a directory (tenant) ID, or organizations.');return;}
+  if(!from||!through||through<from||(new Date(through)-new Date(from))/86400000>366){_olStatus('Choose a valid date range of up to one year.');return;}
+  var includeOwn=document.getElementById('ol-own2').checked;
+  var pids=Array.from(document.querySelectorAll('.ol-person2:checked')).map(function(el){return el.value;});
+  if(!includeOwn&&!pids.length){_olStatus('Select at least one calendar.');return;}
+  if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){_olStatus('Open the published HTTPS website to connect to Microsoft. Sign-in cannot run from a downloaded HTML file.');return;}
+  var previous=_olConfig();if(previous.clientId!==cfg.clientId||previous.tenant!==cfg.tenant||previous.email!==cfg.email){_olSession.token='';_olSession.expires=0;}
+  var popup=null;
+  if(!_olSession.token||_olSession.expires<Date.now()+60000){popup=window.open('about:blank','lab-outlook-signin2','width=560,height=720');if(!popup){_olStatus('Allow pop-ups for this website, then connect again.');return;}}
+  _olBusy(true);_olSession.pending=[];_olSession.warnings=[];document.getElementById('ol-preview2').replaceChildren();
+  try{
+    localStorage.setItem('lab_outlook_config2',JSON.stringify(cfg));
+    _olStatus(popup?'Complete Microsoft sign-in in the pop-up window…':'Reading Outlook calendars…');
+    if(popup)await _olSignIn(cfg,popup);
+    var profile=await _olGraph('me?$select=mail,userPrincipalName');
+    var ownEmail=profile.mail||profile.userPrincipalName,ownPid=_olPid(ownEmail);
+    var sources=[];if(includeOwn)sources.push({path:'me/calendarView',pid:ownPid,label:'My calendar ('+ownEmail+')'});
+    pids.forEach(function(pid){if(!includeOwn||pid!==ownPid)sources.push({path:'users/'+encodeURIComponent(TEAM_EMAILS[pid])+'/calendarView',pid:pid,label:pid});});
+    // Include named/shared calendars visible in Outlook, beyond primary calendars.
+    try{var calendars=await _olPages('me/calendars?$select=id,name,owner,isDefaultCalendar');
+      calendars.forEach(function(cal){var pid=_olPid(cal.owner&&cal.owner.address);if(!cal.isDefaultCalendar&&((pid&&pids.indexOf(pid)>=0)||(includeOwn&&cal.owner&&String(cal.owner.address).toLowerCase()===String(ownEmail).toLowerCase())))sources.push({path:'me/calendars/'+encodeURIComponent(cal.id)+'/calendarView',pid:pid,label:cal.name});});
+    }catch(error){_olSession.warnings.push('Additional calendar discovery: '+error.message);}
+    var query=new URLSearchParams({startDateTime:_olDayAdd(from,-1)+'T00:00:00Z',endDateTime:_olDayAdd(through,2)+'T00:00:00Z','$top':'200','$select':'id,iCalUId,subject,start,end,isAllDay,isCancelled,isOrganizer,organizer,showAs,responseStatus'});
+    var candidates=[],successes=0;
+    for(var source of sources){
+      _olStatus('Reading '+source.label+'…');
+      try{var events=await _olPages(source.path+'?'+query.toString());candidates=candidates.concat(_olCandidates(events,source.pid,from,through));successes++;}
+      catch(error){_olSession.warnings.push(source.label+': '+error.message);}
+    }
+    if(!successes)throw new Error('No calendar could be read. '+_olSession.warnings.join('\n'));
+    var seen=new Set();_olSession.pending=candidates.filter(function(c){var key=c.key+'|'+c.pid+'|'+c.type;if(seen.has(key))return false;seen.add(key);return true;});
+    _olPreview();
+    _olStatus(_olSession.pending.length+' absence events found. Review person, type, and dates below.'+(_olSession.warnings.length?'\nSome calendars were unavailable:\n'+_olSession.warnings.join('\n'):''));
+  }catch(error){if(popup&&!popup.closed)popup.close();_olStatus(error.message);}
+  finally{_olBusy(false);}
+}
+function _olPreview(){
+  var wrap=document.getElementById('ol-preview2');if(!wrap)return;
+  if(!_olSession.pending.length){wrap.textContent='No matching absence events in the selected calendars and dates.';return;}
+  wrap.innerHTML='<p>Only checked rows will be added. Unknown people start unchecked. Existing calendar entries are preserved.</p><div style="overflow:auto;max-height:380px"><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th>Import</th><th>Person</th><th>Type</th><th>Event</th><th>Days</th></tr></thead><tbody>'+_olSession.pending.map(function(row,i){
+    return '<tr><td><input type="checkbox" class="ol-use2" data-index="'+i+'" '+(row.pid?'checked':'')+'></td><td><select class="ol-pid2" data-index="'+i+'"><option value="">Choose person</option>'+Object.keys(TEAM_EMAILS).map(function(pid){return '<option value="'+pid+'" '+(pid===row.pid?'selected':'')+'>'+_olEscape(pid)+'</option>';}).join('')+'</select></td><td><select class="ol-type2" data-index="'+i+'"><option value="vac" '+(row.type==='vac'?'selected':'')+'>Vacation / OOO</option><option value="trip" '+(row.type==='trip'?'selected':'')+'>Business trip</option></select></td><td>'+_olEscape(row.subject)+'<br><small>'+_olEscape(row.source)+'</small></td><td style="white-space:nowrap">'+_olEscape(row.days[0])+' → '+_olEscape(row.days[row.days.length-1])+'<br>'+row.days.length+' day(s)</td></tr>';
+  }).join('')+'</tbody></table></div><button type="button" id="ol-apply2" style="margin-top:14px;padding:10px 18px;background:#76b900;border:0;border-radius:5px">Add selected absences</button>';
+  document.getElementById('ol-apply2').onclick=_olApply;
+}
+async function _olApply(){
+  if(!_olCanImport()||_olSession.busy)return;
+  var selected=[];
+  for(var box of document.querySelectorAll('.ol-use2:checked')){
+    var index=Number(box.dataset.index),row=_olSession.pending[index];
+    var pid=document.querySelector('.ol-pid2[data-index="'+index+'"]').value;
+    var type=document.querySelector('.ol-type2[data-index="'+index+'"]').value;
+    if(!pid){_olStatus('Choose a person for every checked event.');return;}
+    if(!TEAM_EMAILS[pid]||['vac','trip'].indexOf(type)<0)throw new Error('Invalid absence assignment.');
+    selected.push({pid:pid,type:type,days:row.days});
+  }
+  if(!selected.length){_olStatus('Check at least one event to import.');return;}
+  _olBusy(true);document.getElementById('ol-apply2').disabled=true;
+  try{
+    var next=JSON.parse(JSON.stringify(appState));if(!next.vacations)next.vacations={};
+    var added=0;
+    selected.forEach(function(row){row.days.forEach(function(day){
+      var entry=next.vacations[day]||{vac:[],trip:[]};
+      if(Array.isArray(entry))entry={vac:entry,trip:[]};
+      ['vac','trip'].forEach(function(type){if(!Array.isArray(entry[type]))entry[type]=Object.values(entry[type]||{});});
+      if(entry[row.type].indexOf(row.pid)<0){entry[row.type].push(row.pid);added++;}next.vacations[day]=entry;
+    });});
+    if(!added){_olStatus('All selected absence days already exist. Nothing was added.');return;}
+    // Reuse the tested import commit: recovery backup, local storage and cloud.
+    var status=await _commitExcelState(next);refreshAllCals();
+    _olStatus('Added '+added+' absence days. '+status);
+    _olSession.pending=[];document.getElementById('ol-preview2').replaceChildren();
+  }catch(error){_olStatus('Could not save absences: '+error.message);}
+  finally{_olBusy(false);var apply=document.getElementById('ol-apply2');if(apply)apply.disabled=false;}
+}
+
 
 function renderMachines(){
   var wrap=document.getElementById('machines-list');if(!wrap)return;
