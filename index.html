@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26i';
+var BUILD_TS='13.11.26j';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2458,17 +2458,17 @@ function importFromFullExcel(input){
                   rowData.forEach(function(row){
                     if(!row||!row[0])return;
                     var c0=String(row[0]).trim();
-                    if(c0==='TEAM DYNAMICS'){ps.teamComment=String(row[6]||'').trim();return;}
-                    if(c0==='EMPLOYEE COMMENT'){ps.empComment=String(row[6]||'').trim();return;}
-                    if(c0==='MANAGER COMMENT'){ps.mgrComment=String(row[6]||'').trim();return;}
-                    if(c0==='SITE'){ps.siteNote=String(row[6]||'').trim();return;}
+                    // Col layout: A=num, B=label, C=pct, D=done(V/-), E=stTs, F=note, G=noteTs
+                    if(c0==='TEAM DYNAMICS'){ps.teamComment=String(row[5]||row[6]||'').trim();return;}
+                    if(c0==='EMPLOYEE COMMENT'){ps.empComment=String(row[5]||row[6]||'').trim();return;}
+                    if(c0==='MANAGER COMMENT'){ps.mgrComment=String(row[5]||row[6]||'').trim();return;}
+                    if(c0==='SITE'){ps.siteNote=String(row[5]||row[6]||'').trim();return;}
                     if(!row[1]||isNaN(parseInt(c0)))return;
                     var label=String(row[1]).trim().toLowerCase();
                     var id=itemIdx[label];if(!id)return;
-                    if(!ps.pct)ps.pct={};ps.pct[id]=parseInt(row[3])||0;
-                    if(!ps.items)ps.items={};ps.items[id]=String(row[4]).trim()==='V';
-                    if(!ps.notes)ps.notes={};ps.notes[id]=String(row[6]||'').trim();
-                    if(row[8])ps.mgrComment=String(row[8]).trim();
+                    if(!ps.pct)ps.pct={};ps.pct[id]=parseInt(row[2])||0;
+                    if(!ps.items)ps.items={};ps.items[id]=String(row[3]||'').trim()==='V';
+                    if(!ps.notes)ps.notes={};ps.notes[id]=String(row[5]||'').trim();
                     imported++;
                   });
                 }
