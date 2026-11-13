@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26o';
+var BUILD_TS='13.11.26p';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2897,19 +2897,23 @@ function loadState(callback){
         return score;
       }
       var fbData=snap.val();
-      // FORCE FIX: if sessions look corrupted, immediately overwrite with embedded sessions
+      // Fix sessions: filter out corrupted entries, keep valid ones
       try{
-        var fbSess=fbData&&fbData.sessions?Object.values(fbData.sessions):[];
-        var corruptedSess=fbSess.filter(function(s){return s&&s.title&&(s.title.indexOf('Training was scheduled')>=0||s.title.indexOf('He reached level')>=0||s.title.indexOf('DC machine advanced training')>=0);});
-        if(corruptedSess.length>0){
+        var fbSessRaw=fbData&&fbData.sessions?Object.values(fbData.sessions):[];
+        var badKeywords=['Training was scheduled for the week','He reached level','DC machine advanced training','Expert-level proficiency','Basi site'];
+        var isBad=function(s){if(!s||!s.title)return true;return badKeywords.some(function(k){return s.title.indexOf(k)>=0;});};
+        var hasBad=fbSessRaw.some(isBad);
+        if(hasBad){
           var emElFix=document.getElementById('app-data');
           if(emElFix){
             var emFix=JSON.parse(emElFix.textContent.trim());
-            if(emFix.sessions){
-              firebaseDB.ref('appState/sessions').set(emFix.sessions);
-              if(fbData)fbData.sessions=emFix.sessions;
-              console.log('[Fix] Corrupted sessions replaced with',emFix.sessions.length,'correct sessions');
-            }
+            var goodFbSess=fbSessRaw.filter(function(s){return !isBad(s);});
+            var emSessIds=(emFix.sessions||[]).map(function(s){return s.id;});
+            var newSess=(emFix.sessions||[]).slice();
+            goodFbSess.forEach(function(s){if(emSessIds.indexOf(s.id)<0)newSess.push(s);});
+            firebaseDB.ref('appState/sessions').set(newSess);
+            if(fbData)fbData.sessions=newSess;
+            console.log('[Fix] Sessions fixed: '+newSess.length+' sessions restored');
           }
         }
       }catch(e){console.error('[Fix] session restore failed:',e);}
