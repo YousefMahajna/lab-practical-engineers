@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26k';
+var BUILD_TS='13.11.26l';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2473,8 +2473,70 @@ function importFromFullExcel(input){
                   });
                 }
               });
-              _guardState();saveStateNow();render();applyUserSession();
-              alert('Imported successfully! '+imported+' items updated.');
+              // Import Sessions sheet
+              sheets.forEach(function(sh){
+                if(!sh)return;
+                var name=sh.name.trim().toLowerCase();
+                if(name==='sessions'){
+                  var newSessions=[];
+                  var rowData2=[];
+                  (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
+                    var cells=[];
+                    (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
+                      var t=(cXml.match(/t="([^"]*)"/))||[];
+                      var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
+                      var r=(cXml.match(/r="([A-Z]+)/))||[];
+                      var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
+                      var val='';if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
+                      while(cells.length<=col)cells.push('');cells[col]=val;
+                    });
+                    rowData2.push(cells);
+                  });
+                  rowData2.forEach(function(row,ri){
+                    if(ri<2||!row[0]||row[0]==='Title')return;
+                    if(!row[0].trim())return;
+                    newSessions.push({id:'sess_imp_'+ri,title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:row[6]==='Yes',link:''});
+                    imported++;
+                  });
+                  if(newSessions.length>0)appState.sessions=newSessions;
+                }
+                if(name==='my tasks'){
+                  var newTasks=[];
+                  var rowData3=[];
+                  (sh.xml.match(/<row[^>]*>[\s\S]*?<\/row>/g)||[]).forEach(function(rowXml){
+                    var cells=[];
+                    (rowXml.match(/<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cXml){
+                      var t=(cXml.match(/t="([^"]*)"/))||[];
+                      var v=(cXml.match(/<v>([^<]*)<\/v>/))||[];
+                      var r=(cXml.match(/r="([A-Z]+)/))||[];
+                      var col=r[1]?r[1].split('').reduce(function(n,c){return n*26+(c.charCodeAt(0)-64);},0)-1:cells.length;
+                      var val='';if(v[1]!==undefined){val=(t[1]==='s')?(sstrings[parseInt(v[1])]||''):v[1];}
+                      while(cells.length<=col)cells.push('');cells[col]=val;
+                    });
+                    rowData3.push(cells);
+                  });
+                  rowData3.forEach(function(row,ri){
+                    if(ri<2||!row[1]||row[1]==='Title')return;
+                    if(!row[1].trim())return;
+                    newTasks.push({id:'task_imp_'+ri,year:row[0]||'2026',title:row[1]||'',category:row[2]||'',date:row[3]||'',details:row[4]||'',impact:row[5]||''});
+                    imported++;
+                  });
+                  if(newTasks.length>0){if(!appState.myTasks)appState.myTasks={};appState.myTasks.items=newTasks;}
+                }
+              });
+              _guardState();
+              // Force Firebase save directly
+              if(FIREBASE_READY&&firebaseDB){
+                firebaseDB.ref('appState').update(appState).then(function(){
+                  saveStateNow();render();applyUserSession();
+                  alert('Imported successfully! '+imported+' items updated.');
+                }).catch(function(e){
+                  saveStateNow();render();applyUserSession();
+                  alert('Imported successfully! '+imported+' items updated. (Firebase: '+e.message+')');
+                });
+              } else {
+                saveStateNow();render();applyUserSession();
+              }
             });
           });
         });
