@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26x';
+var BUILD_TS='13.11.26y';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2616,8 +2616,8 @@ function importFromFullExcel(input){
                 delete fbPayload.sessions;
                 firebaseDB.ref('appState').set(fbPayload).then(function(){
                   console.log('[Import] Firebase save OK');
-                  _lt=Date.now(); // suppress live listener for 10s
-                  setTimeout(function(){window._importLock=false;},10000);
+                  window._lt=Date.now(); // suppress live listener for 10s
+                  setTimeout(function(){window._importLock=false;window._lt=Date.now();},10000);
                   render();applyUserSession();
                   alert('Imported successfully! '+imported+' items updated.');
                 }).catch(function(e){
@@ -6457,13 +6457,13 @@ function _startApp(){
     }
   }
   if(FIREBASE_READY&&firebaseDB){
-    var _lt=0,_orig=saveStateNow;
-    saveStateNow=function(){_lt=Date.now();_orig();};
+    window._lt=0;var _orig=saveStateNow;
+    saveStateNow=function(){window._lt=Date.now();_orig();};
     window._importLock=false; // set true during import to suppress live listener
     firebaseDB.ref("appState").on("value",function(snap){
       if(window._importLock)return; // suppress during import
       var d=snap.val();
-      if(d&&currentUser&&Date.now()-_lt>5000){
+      if(d&&currentUser&&Date.now()-window._lt>5000){
         // Always preserve sessions - they live in localStorage/embedded, not Firebase
         var savedSessions=appState.sessions||[];
         try{var lsRawLive=localStorage.getItem(SK);if(lsRawLive){var lsParsedLive=JSON.parse(lsRawLive);if(lsParsedLive.sessions&&lsParsedLive.sessions.length>savedSessions.length)savedSessions=lsParsedLive.sessions;}}catch(e){}
