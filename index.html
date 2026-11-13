@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26w';
+var BUILD_TS='13.11.26x';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2602,8 +2602,13 @@ function importFromFullExcel(input){
               });
               try{localStorage.removeItem('sess_fix_13nov26');}catch(e){}
               console.log('[Import] '+imported+' items. haytam pct:', JSON.stringify(appState.haytam&&appState.haytam.pct||{}));
-              // Save localStorage first
-              try{localStorage.setItem(SK,JSON.stringify(appState));localStorage.setItem(SK+'_bk',JSON.stringify(appState));}catch(e){}
+              // Save full state including sessions to localStorage
+              try{
+                var fullSave=JSON.stringify(appState);
+                localStorage.setItem(SK,fullSave);
+                localStorage.setItem(SK+'_bk',fullSave);
+                sessionStorage.setItem(SK+'_session',fullSave);
+              }catch(e){}
               _guardState();
               if(FIREBASE_READY&&firebaseDB){
                 window._importLock=true; // block live listener
@@ -2611,7 +2616,8 @@ function importFromFullExcel(input){
                 delete fbPayload.sessions;
                 firebaseDB.ref('appState').set(fbPayload).then(function(){
                   console.log('[Import] Firebase save OK');
-                  setTimeout(function(){window._importLock=false;},3000); // release after 3s
+                  _lt=Date.now(); // suppress live listener for 10s
+                  setTimeout(function(){window._importLock=false;},10000);
                   render();applyUserSession();
                   alert('Imported successfully! '+imported+' items updated.');
                 }).catch(function(e){
