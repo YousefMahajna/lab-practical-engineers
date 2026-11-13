@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26h';
+var BUILD_TS='14.11.26i';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2404,7 +2404,14 @@ function importFromFullExcel(input){
           Promise.all([wbF.async('string'),wbRF.async('string'),ssF?ssF.async('string'):Promise.resolve('')]).then(function(res){
             var wbXml=res[0],wbRels=res[1],ssXml=res[2];
             var sstrings=[];
-            (ssXml.match(/<t[^>]*>([^<]*)<\/t>/g)||[]).forEach(function(m){sstrings.push(m.replace(/<\/?t[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'));});
+            // Parse each <si> element and concatenate all <t> values (handles rich text <r><t> structure)
+            (ssXml.match(/<si>[\s\S]*?<\/si>/g)||[]).forEach(function(si){
+              var text='';
+              (si.match(/<t[^>]*>([^<]*)<\/t>/g)||[]).forEach(function(t){
+                text+=t.replace(/<\/?t[^>]*>/g,'');
+              });
+              sstrings.push(text.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&apos;/g,"'"));
+            });
             var shList=[];
             (wbXml.match(/<sheet[^/]*/g)||[]).forEach(function(m){var nm=(m.match(/name="([^"]*)"/))||[];var rid=(m.match(/r:id="([^"]*)"/))||[];if(nm[1]&&rid[1])shList.push({name:nm[1],rid:rid[1]});});
             var ridPath={};
