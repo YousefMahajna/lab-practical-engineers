@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Microsoft sign-in</title></head>
+<body><p id="status2">Completing Microsoft sign-in…</p>
+<script>
+(function(){
+  var params=new URLSearchParams(location.search);
+  var result={type:'lab-outlook-auth2',state:params.get('state'),code:params.get('code'),error:params.get('error'),error_description:params.get('error_description')};
+  history.replaceState(null,'',location.pathname);
+  if(window.opener){window.opener.postMessage(result,location.origin);document.getElementById('status2').textContent='Return to the Lab Practical Engineer window.';}
+  else document.getElementById('status2').textContent='Open the tracker and select Sync from Outlook to sign in.';
+})();
+</script></body></html>
