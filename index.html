@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26e';
+var BUILD_TS='14.11.26f';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2197,7 +2197,8 @@ function _buildXlsx(){
       var stTs=String((ps.itemsTs&&ps.itemsTs[it.id])||(ps.pctTs&&ps.pctTs[it.id])||'');
       var mgr=String(ps.mgrComment||'');
       var sf=done?ST.done:ST.norm;var sc=done?ST.doneC:ST.normC;
-      rows.push({cells:[cN(num,sc),cS(it.label,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(stTs,ST.ts),cS(note,ST.note),cS(noteTs,ST.ts),cB(ST.blank),cB(ST.blank)],h:estH([it.label,note],[CW_ENG[1],CW_ENG[5]],13)});
+      var noteFlat=note.replace(/\n/g,' | ');
+      rows.push({cells:[cN(num,sc),cS(it.label,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(stTs,ST.ts),cS(noteFlat,ST.note),cS(noteTs,ST.ts),cB(ST.blank),cB(ST.blank)],h:18});
       num++;
     });
     rows.push(gap(),sRow('TEAM DYNAMICS','Score:'+(ps.teamScore||'-'),ps.teamComment,ps.teamCommentTs),sRow('EMPLOYEE COMMENT','',ps.empComment,ps.empCommentTs),sRow('MANAGER COMMENT','',ps.mgrComment,ps.mgrCommentTs));
@@ -2473,7 +2474,11 @@ function importFromFullExcel(input){
                     if(c0==='MANAGER COMMENT'){ps.mgrComment=String(row[5]||row[6]||'').trim();return;}
                     if(c0==='SITE'){ps.siteNote=String(row[5]||row[6]||'').trim();return;}
                     if(!row[1]||isNaN(parseInt(c0)))return;
-                    var label=String(row[1]).trim().toLowerCase();
+                    // Skip if col B looks like a note, done value, or timestamp (not a real label)
+                    var col1=String(row[1]).trim();
+                    if(col1==='V'||col1==='-'||col1.length<3)return;
+                    if(/^\d{4}-\d{2}/.test(col1))return; // skip date strings
+                    var label=col1.toLowerCase();
                     var id=itemIdx[label];if(!id)return;
                     var newPct=parseInt(row[2])||0;
                     var newDone=String(row[3]||'').trim()==='V';
