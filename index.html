@@ -510,7 +510,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='14.11.26c';
+var BUILD_TS='14.11.26d';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2618,8 +2618,9 @@ function importFromFullExcel(input){
               // Block live listener
               window._importLock=true;
               window._lt=Date.now();
-              // Render immediately with new data
+              console.log('[Import] BEFORE guardState h1='+JSON.stringify(appState.haytam&&appState.haytam.pct&&appState.haytam.pct.h1));
               _guardState();
+              console.log('[Import] AFTER guardState h1='+JSON.stringify(appState.haytam&&appState.haytam.pct&&appState.haytam.pct.h1));
               try{render();}catch(e){}
               try{applyUserSession();}catch(e){}
               // Save to Firebase in background
