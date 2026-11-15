@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26e</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26f</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='15.11.26e';
+var BUILD_TS='15.11.26f';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2060,10 +2060,10 @@ function _restoreExportSnapshot8(sheets,state){
   var backup=sheets.backup8,restored=JSON.parse(JSON.stringify(backup.appState));
   // Restore live task definitions too, including new labels and moved training tasks.
   restored._allItems=restored._allItems||{};
-  backup.people.forEach(function(person){restored._allItems[person.id]=person.items;});
+  backup.people.forEach(function(person){restored._allItems[person.id]=JSON.parse(JSON.stringify(person.items));});
   restored._amirCustomTasks={};if(!restored.amir)restored.amir={};
   restored.amir.taskMonths2026=restored.amir.taskMonths2026||{};
-  backup.amirTraining.forEach(function(group){if(!group||!group.month||!Array.isArray(group.items))return;restored._amirCustomTasks[group.month]=group.items;group.items.forEach(function(task){restored.amir.taskMonths2026[task.id]=group.month;});});
+  backup.amirTraining.forEach(function(group){if(!group||!group.month||!Array.isArray(group.items))return;restored._amirCustomTasks[group.month]=JSON.parse(JSON.stringify(group.items));group.items.forEach(function(task){restored.amir.taskMonths2026[task.id]=group.month;});});
   Object.keys(state).forEach(function(key){delete state[key];});Object.assign(state,restored);
 }
 function _applyExtraExportSheet8(sheet,state){
@@ -2133,7 +2133,7 @@ function exportFullExcel(){
   } else {_runExcelExport9(snapshot); }
 }
 
-function _buildXlsx(snapshot){
+function _buildXlsx(snapshot,collectOnly10){
   var backup=snapshot||_captureSystemExport8();
   var appState=backup.appState,PEOPLE=backup.people,AMIR_TRAINING=backup.amirTraining;
   var longTexts8=[];
@@ -2421,9 +2421,9 @@ function _buildXlsx(snapshot){
     var CW2=[44,12,12,14,14,30];
     var rows=[];
     rows.push(titleRow('Open Action Items — '+xts(),6));
-    rows.push(hRow(['Title','Status','Priority','Owner','Engineer','Note']));
+    rows.push(hRow(['Title','Status','Priority','Owner','Engineer','Note','Action ID']));
     ars.forEach(function(ar){
-      rows.push(sRow2([ar.title||'',ar.status||'',ar.priority||'',ar.owner||'',ar.engineer||'',ar.note||'']));
+      rows.push(sRow2([ar.title||'',ar.status||'',ar.priority||'',ar.owner||'',ar.engineer||'',ar.note||'',ar.id||'']));
     });
     sNames.push('Open ARs');sXmls.push(shXml(rows,CW2));
   })();}catch(e){console.error('OpenARs sheet:',e);}
@@ -2517,7 +2517,7 @@ function _buildXlsx(snapshot){
     {Section:'Readable records',Details:'Reviews, Year Comments, X-Sections, Machine Details, Training Plans, My Tasks Details, Session Details, Task Definitions and Pending Changes expose additional data.'},
     {Section:'Other saved fields',Details:'All Saved Fields lists every stored appState value and its path, including timestamps, deleted IDs, metadata, and future fields.'},
     {Section:'Long text',Details:'If a value exceeds an Excel cell limit, its cell refers to numbered parts in Long Text. The complete content also remains in Full Data Backup.'},
-    {Section:'Import',Details:'Importing this workbook restores its complete app-data snapshot, then applies edits from the regular engineer/year task, Amir training, Sessions, My Tasks, Vacations, Machines, Open ARs and Machine Training sheets. Other detail sheets are for review and backup, not editing. Task IDs must be kept.'},
+    {Section:'Import',Details:'Import compares the workbook with its original snapshot, previews edited fields, and applies only selected edits to the current website. The named task, session, review, comment, machine, training and detail sheets can be edited. Keep record IDs, headings, worksheet names and Full Data Backup unchanged. Rows missing from the workbook do not delete website records. Conflicting edits require your choice in the preview.'},
     {Section:'Website',Details:'Export is read-only. It does not save to Firebase, change progress, change year/month selection, or replace browser backups.'},
     {Section:'Account credentials',Details:'Passwords, GitHub/Outlook tokens, and Microsoft connection settings stored separately from appState are not included.'}
   ];extraSheet8('Export Guide',guide8,['Section','Details']);
@@ -2525,6 +2525,7 @@ function _buildXlsx(snapshot){
   sNames.unshift(sNames.pop());sXmls.unshift(sXmls.pop());
   if(longTexts8.length)extraSheet8('Long Text',longTexts8,['Text ID','Part','Text']);
 
+  if(collectOnly10)return _expandExportSheets8(sNames.map(function(name,index){return {name:name,rows:_excelRows(sXmls[index],[])};}));
   var zip=new JSZip();
   var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>';
   sNames.forEach(function(_,i){ct+='<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';});
@@ -2562,7 +2563,7 @@ function _buildXlsx(snapshot){
   });
   return _validateWorkbookXml9(zip).then(function(){return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}).then(function(blob){
     var a=document.createElement('a');var d=new Date();
-    a.download='Lab_Engineers_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'_9.xlsx';
+    a.download='Lab_Engineers_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'_10.xlsx';
     a.href=URL.createObjectURL(blob);document.body.appendChild(a);a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
   });
@@ -2714,7 +2715,7 @@ function _applyExcelSheets(sheets,state){
                     if(ri<2)return;
                     var title=String(row[0]||'').trim();
                     if(!title||title==='Title')return;
-                    newARs.push({id:'ar_imp_'+Date.now()+'_'+ri,title:title,status:String(row[1]||''),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'')});
+                    newARs.push({id:String(row[6]||'ar_imp_'+Date.now()+'_'+ri),title:title,status:String(row[1]||''),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'')});
                     imported++;
                   });
                   if(newARs.length>0)state.openARs=carry(state.openARs,newARs,'title');
@@ -2786,7 +2787,7 @@ function _applyExcelSheets(sheets,state){
   _preserveExportMetadata8(sheets,state);
   return imported;
 }
-async function _commitExcelState(next){
+async function _commitExcelState(next,cloudWriter10){
   // Retain the pre-import state in a separate recovery slot before changing data.
   localStorage.setItem(SK+'_before_import',JSON.stringify(appState));
   next._excelImportedAt=Date.now();
@@ -2799,13 +2800,258 @@ async function _commitExcelState(next){
     var em=document.getElementById('app-data');if(em)em.textContent=data;
     render();if(currentUser)applyUserSession();
     if(FIREBASE_READY&&firebaseDB){
-      try{await firebaseDB.ref('appState').update(JSON.parse(data));}
+      try{if(cloudWriter10)await cloudWriter10(next._excelImportedAt);else await firebaseDB.ref('appState').update(JSON.parse(data));}
       catch(error){return 'Saved locally. Cloud save failed: '+error.message;}
     }
     return FIREBASE_READY&&firebaseDB?'Saved locally and to Firebase.':'Saved locally (offline).';
   }finally{window._importLock=false;}
 }
+function _cloneImport10(value){return value===undefined?undefined:JSON.parse(JSON.stringify(value));}
+function _sameImport10(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function _safeKey10(key){if(['__proto__','prototype','constructor'].indexOf(String(key))>=0)throw new Error('Unsupported field name in workbook.');return key;}
+function _selectImportIndex10(container,selector){
+  var entries=Object.entries(container||{});
+  if(selector.id!==undefined){var entry=entries.find(function(pair){return pair[1]&&pair[1].id===selector.id;});return entry?entry[0]:null;}
+  if(selector.member!==undefined)return Array.isArray(container)?container.indexOf(selector.member):null;
+  var exact=entries.filter(function(pair){return _sameImport10(pair[1],selector.anchor);});if(exact.length===1)return exact[0][0];
+  var keys=['id','key','date','product','title','machine'].filter(function(key){return selector.anchor&&selector.anchor[key]!==undefined;});
+  var matches=entries.filter(function(pair){return keys.length&&pair[1]&&keys.every(function(key){return _sameImport10(pair[1][key],selector.anchor[key]);});});
+  if(matches.length===1)return matches[0][0];
+  return entries.length===selector.length&&container[selector.index]!==undefined?String(selector.index):null;
+}
+function _importValue10(root,path){
+  var value=root;
+  for(var token of path){if(value===undefined||value===null)return undefined;
+    if(typeof token==='object'){
+      var index=_selectImportIndex10(value,token);
+      if(token.member!==undefined)return index!==null&&index>=0;
+      if(index===null)return undefined;value=value[index];
+    }else value=value[_safeKey10(token)];
+  }return value;
+}
+function _writeImport10(root,path,value){
+  var target=root;
+  for(var i=0;i<path.length;i++){
+    var token=path[i],last=i===path.length-1;
+    if(typeof token==='object'){
+      if(token.member!==undefined){var pos=target.indexOf(token.member);if(value&&pos<0)target.push(token.member);if(!value&&pos>=0)target.splice(pos,1);return;}
+      var key=_selectImportIndex10(target,token);
+      if(key===null){if(last&&Array.isArray(target)){target.push(_cloneImport10(value));return;}throw new Error('The destination record no longer exists.');}
+      if(last){target[key]=_cloneImport10(value);return;}target=target[key];
+    }else{
+      _safeKey10(token);if(last){target[token]=_cloneImport10(value);return;}
+      if(target[token]===undefined||target[token]===null)target[token]=typeof path[i+1]==='object'?[]:{};
+      target=target[token];
+    }
+  }
+}
+function _diffImport10(before,after,path,changes){
+  if(_sameImport10(before,after)||after===undefined)return;
+  if(Array.isArray(before)&&Array.isArray(after)){
+    if(before.concat(after).every(function(item){return item&&typeof item==='object'&&item.id;})){
+      after.forEach(function(item){var old=before.find(function(row){return row.id===item.id;});_diffImport10(old,item,path.concat([{id:item.id}]),changes);});return;
+    }
+    if(before.concat(after).every(function(item){return typeof item==='string';})&&new Set(before).size===before.length&&new Set(after).size===after.length){
+      Array.from(new Set(before.concat(after))).forEach(function(member){if(before.includes(member)!==after.includes(member))changes.push({path:path.concat([{member:member}]),before:before.includes(member),after:after.includes(member)});});return;
+    }
+    if(before.length===after.length&&before.every(function(item){return item&&typeof item==='object';})){
+      after.forEach(function(item,index){_diffImport10(before[index],item,path.concat([{index:index,anchor:before[index],length:before.length}]),changes);});return;
+    }
+  }
+  if(after&&typeof after==='object'&&!Array.isArray(after)&&(!before||(typeof before==='object'&&!Array.isArray(before)))&&!(before===undefined&&typeof path[path.length-1]==='object')){
+    Object.keys(after).forEach(function(key){_safeKey10(key);_diffImport10(before&&before[key],after[key],path.concat([key]),changes);});return;
+  }
+  changes.push({path:path,before:_cloneImport10(before),after:_cloneImport10(after)});
+}
+function _typedImport10(value,previous,field){
+  if(typeof previous==='boolean'){if(/^(true|yes|v|1)$/i.test(String(value)))return true;if(/^(false|no|-|0|)$/i.test(String(value)))return false;throw new Error('Use True or False in '+field+'.');}
+  if(typeof previous==='number'){var number=Number(value);if(value===''||!Number.isFinite(number))throw new Error('Enter a number in '+field+'.');if(/pct|percent/i.test(field)&&(number<0||number>100))throw new Error('Progress must be between 0 and 100.');return number;}
+  if(previous!==null&&typeof previous==='object'){try{return JSON.parse(String(value));}catch(error){throw new Error('Invalid structured value in '+field+'. Edit the sentence inside the existing JSON structure.');}}
+  if(previous===null&&String(value)==='null')return null;
+  if(/^\d{4}-\d\d-\d\d$/.test(String(previous))&&/^\d+(?:\.\d+)?$/.test(String(value)))return new Date(Date.UTC(1899,11,30)+Math.floor(Number(value))*86400000).toISOString().slice(0,10);
+  return String(value==null?'':value);
+}
+function _ownerImport10(name,backup){
+  if(name==='Amir'||name==='amir')return 'amir';if(name==='Yousef'||name==='yousef')return 'myTasks';
+  var p=(backup.people||[]).find(function(p){return p.id===name||p.name===name;});if(!p)throw new Error('Unknown engineer '+name+'. Keep the Person column unchanged.');return p.id;
+}
+function _applyDetailEdits10(sheet,baseline,backup,state){
+  var types={'Session Details':{root:['sessions'],keys:['id']},'My Tasks Details':{root:['myTasks','items'],keys:['id']},'Training Plans':{root:['machTraining'],keys:['id']},'Pending Changes':{root:['pending'],keys:['id']},'X-Sections':{keys:['Group','Record key']},'Reviews':{keys:['Person','Review','Field']},'Year Comments':{keys:['Person','Year']},'Machine Details':{keys:['Machine ID','Engineer']},'Task Definitions':{keys:['Person','id']},'All Saved Fields':{keys:['Path']}};
+  var type=types[sheet.name];if(!type)return false;
+  var headers=baseline.rows[1]||[],actualHeaders=sheet.rows[1]||[];
+  headers.forEach(function(header){if(actualHeaders.indexOf(header)<0)throw new Error(sheet.name+': keep the column headings unchanged.');});
+  function record(row,names){var obj={};names.forEach(function(key,index){obj[key]=row[index]===undefined?'':row[index];});return obj;}
+  function identity(row){return JSON.stringify(type.keys.map(function(key){return row[key];}));}
+  var originals={};baseline.rows.slice(2).forEach(function(row){var r=record(row,headers);originals[identity(r)]=r;});
+  var seen={};sheet.rows.slice(2).forEach(function(row){
+    if(!row.some(function(value){return value!==''&&value!==undefined;}))return;
+    var actual=record(row,actualHeaders),key=identity(actual),old=originals[key];
+    if(!old)throw new Error(sheet.name+': a record ID or identifying column was changed. Keep IDs and identifying columns unchanged.');
+    if(seen[key])throw new Error(sheet.name+': duplicated record ID.');seen[key]=true;
+    headers.forEach(function(field){if(type.keys.includes(field)||_sameImport10(String(actual[field]),String(old[field])))return;
+      var path,previous;
+      if(type.root){
+        var list=_exportValues8(_importValue10(state,type.root)),item=list.find(function(item){return String(item.id)===String(actual.id);});if(!item)throw new Error('Record not found: '+actual.id);
+        path=type.root.concat([{id:item.id},field]);previous=item[field];
+      }else if(sheet.name==='X-Sections'){
+        var group=state.xsections&&state.xsections[actual.Group],entry=group&&group[actual['Record key']];if(!entry)throw new Error('X-Section record not found.');
+        path=['xsections',actual.Group,String(actual['Record key']),field];previous=entry[field];
+      }else if(sheet.name==='Reviews'){
+        if(field!=='Content')throw new Error('Keep review identifying columns unchanged.');
+        var owner=_ownerImport10(actual.Person,backup),review=actual.Review==='Baseline focal'?'focal':actual.Review;
+        path=[owner,review,actual.Field];previous=_importValue10(state,path);
+        if(previous===undefined&&actual.Review==='Baseline focal')previous=(backup.focal[owner]||{})[actual.Field];
+      }else if(sheet.name==='Year Comments'){
+        var owner=_ownerImport10(actual.Person,backup),map={Score:'teamScore','Team comment':'teamComment','Employee comment':'empComment','Manager comment':'mgrComment'},suffix=String(actual.Year)==='2026'?'':'_'+actual.Year;
+        if(!map[field])throw new Error('Keep year-comment identifying columns unchanged.');path=[owner,map[field]+suffix];previous=_importValue10(state,path);if(field==='Score')previous=Number(previous||0);
+      }else if(sheet.name==='Machine Details'){
+        var pid=actual.Engineer,mid=actual['Machine ID'],map={Level:'machineScores',Goal:'machineGoals',Deadline:'machineGoals',Comment:'machineComments'};
+        if(field==='Machine'){path=['machines',{id:mid},'name'];previous=_importValue10(state,path);}
+        else{if(!map[field])throw new Error('Keep machine identifying columns unchanged.');path=[map[field],mid+'__'+pid+(field==='Deadline'?'__date':'')];previous=_importValue10(state,path);if(field==='Level'||field==='Goal')previous=Number(previous||0);}
+      }else if(sheet.name==='Task Definitions'){
+        var owner=_ownerImport10(actual.Person,backup);
+        if(owner==='amir'){
+          if(field==='Month'){if(!(backup.amirTraining||[]).some(function(g){return g.month===actual.Month;}))throw new Error('Choose an existing training month.');path=['amir','taskMonths2026',actual.id];previous=old.Month;}
+          else if(field==='Year'){throw new Error('Training tasks belong to 2026.');}
+          else{var group=backup.amirTraining.find(function(g){return (g.items||[]).some(function(item){return item.id===actual.id;});});if(!group)throw new Error('Training task not found.');path=['_amirCustomTasks',group.month,{id:actual.id},field];previous=_importValue10(state,path);}
+        }else if(field==='Year'){if(!/^20\d\d$/.test(String(actual.Year)))throw new Error('Use a four-digit year.');path=[owner,'itemYears',actual.id];previous=old.Year;}
+        else{path=['_allItems',owner,{id:actual.id},field];previous=_importValue10(state,path);}
+      }else if(sheet.name==='All Saved Fields'){
+        if(field!=='Value')throw new Error('Keep saved-field Path and Type unchanged.');
+        var pointer=String(actual.Path).split('/').slice(1).map(function(token){return token.replace(/~1/g,'/').replace(/~0/g,'~');});if(pointer.shift()!=='appState')throw new Error('Invalid saved-data path.');pointer.forEach(_safeKey10);path=pointer;previous=_importValue10(state,path);
+      }
+      var parsed=_typedImport10(actual[field],previous,field);
+      if(sheet.name==='Task Definitions'&&field==='Year')parsed=String(actual[field]);
+      if(sheet.name==='Year Comments'&&field==='Score'&&(parsed<0||parsed>5))throw new Error('Team score must be between 0 and 5.');
+      if(sheet.name==='Machine Details'&&(field==='Level'||field==='Goal')&&(parsed<0||parsed>5))throw new Error('Machine level/goal must be between 0 and 5.');
+      _writeImport10(state,path,parsed);
+    });
+  });return true;
+}
+function _prepareMainSheet10(sheet,baseline,backup){
+  var result=_cloneImport10(sheet),names=['Sessions','My Tasks','Open ARs','Machines','Vacations'];
+  var dateColumns={Sessions:[2],'My Tasks':[3],Vacations:[0],'Machine Training':[2,3]}[sheet.name]||[];
+  result.rows.forEach(function(row,index){dateColumns.forEach(function(column){var old=(baseline.rows[index]||[])[column];if(/^\d{4}-\d\d-\d\d$/.test(String(old))&&/^\d+(?:\.\d+)?$/.test(String(row[column])))row[column]=_typedImport10(row[column],old,'Date');});});
+  // Reject changed headings before positional legacy parsers can misroute values.
+  if(names.includes(sheet.name)){var expected=baseline.rows[1]||[],actual=sheet.rows[1]||[];actual.forEach(function(header,i){if(header&&expected[i]!==header)throw new Error(sheet.name+': keep column headings and order unchanged.');});}
+  var person=backup.people.find(function(p){return sheet.name===p.name||new RegExp('^'+p.name+' 20\\d\\d$').test(sheet.name);}),amirGoal=/^Amir 20\d\d$/.test(sheet.name);
+  if(person||amirGoal||sheet.name==='Amir'){
+    var training=sheet.name==='Amir',pctCol=training?4:2,doneCol=training?5:3,idCol=training?10:9;
+    result.rows.forEach(function(row,index){
+      if(!row[idCol])return;var base=baseline.rows.find(function(r){return r[idCol]===row[idCol];});if(!base)return;
+      var pctChanged=String(row[pctCol])!==String(base[pctCol]),doneChanged=String(row[doneCol])!==String(base[doneCol]);
+      if(pctChanged){var value=Number(row[pctCol]);if(row[pctCol]===''||!Number.isFinite(value)||value<0||value>100)throw new Error('Progress must be a number between 0 and 100.');if(!doneChanged)row[doneCol]=value===100?'V':'-';}
+      if(doneChanged){if(!['V','-'].includes(row[doneCol]))throw new Error('Use V or - in the Done column.');if(!pctChanged)row[pctCol]=row[doneCol]==='V'?100:0;else if((Number(row[pctCol])===100)!==(row[doneCol]==='V'))throw new Error('The Done mark and progress percentage disagree.');}
+      if(training&&row[6]!==base[6]&&!pctChanged&&!doneChanged){if(row[6]==='Done'){row[4]=100;row[5]='V';}if(row[6]==='Not started'){row[4]=0;row[5]='-';}}
+    });
+  }
+  if(sheet.name==='Open ARs')result.rows.slice(2).forEach(function(row,index){if(!row[6]){var old=baseline.rows.slice(2).find(function(old){return old[0]===row[0];})||baseline.rows[index+2];if(old){var ar=_exportValues8(backup.appState.openARs).find(function(ar){return ar.title===old[0];});if(ar)row[6]=ar.id;}}});
+  return result;
+}
+function _diffMainMachines10(sheet,baseline,state){
+  if(sheet.name!=='Machines')return false;
+  var machines=_exportValues8(state.machines||DEFAULT_MACHINES),pids=['haytam','garold','michael','samer','amir'];
+  sheet.rows.slice(2).forEach(function(row,index){var base=baseline.rows.slice(2).find(function(old){return old[0]===row[0];})||baseline.rows[index+2];if(!base)return;var machine=machines.find(function(m){return m.name===base[0];});if(!machine)return;
+    row.forEach(function(value,col){if(String(value||'')===String(base[col]||''))return;var path,previous;
+      if(col<3){path=['machines',{id:machine.id},['name','owner','category'][col]];previous=machine[['name','owner','category'][col]];}
+      else if(col<13){path=[col<8?'machineScores':'machineGoals',machine.id+'__'+pids[(col-3)%5]];previous=Number(_importValue10(state,path)||0);}else return;
+      var parsed=_typedImport10(value,previous,col<3?'Machine text':'Level');if(col>=3&&(parsed<0||parsed>5))throw new Error('Machine level/goal must be between 0 and 5.');_writeImport10(state,path,parsed);
+    });
+  });return true;
+}
+function _interpretImportSheet10(sheet,baseline,backup){
+  var state={},wrapper=[];wrapper.backup8=backup;_restoreExportSnapshot8(wrapper,state);
+  if(_applyDetailEdits10(sheet,baseline,backup,state))return state;
+  if(_diffMainMachines10(sheet,baseline,state))return state;
+  var prepared=_prepareMainSheet10(sheet,baseline,backup),single=[prepared];single.backup8=backup;_applyExcelSheets(single,state);
+  if(sheet.name==='Amir')prepared.rows.forEach(function(row){if(row[10]&&row[11]&&(backup.amirTraining||[]).some(function(g){return g.month===row[11];}))state.amir.taskMonths2026[row[10]]=row[11];});
+  return state;
+}
+function _effectiveImportState10(source,preferStored){
+  var result=_cloneImport10(source||appState);result._allItems=result._allItems||{};result._amirCustomTasks=result._amirCustomTasks||{};
+  (PEOPLE||[]).forEach(function(person){if(!preferStored||!result._allItems[person.id])result._allItems[person.id]=_cloneImport10(person.items);if(result[person.id])result[person.id].focal=Object.assign({},FOCAL[person.id]||{},result[person.id].focal||{});});
+  (AMIR_TRAINING||[]).forEach(function(group){if(group&&group.month&&group.items&&(!preferStored||!result._amirCustomTasks[group.month]))result._amirCustomTasks[group.month]=_cloneImport10(group.items);});return result;
+}
+function _describeImport10(path,backup){
+  var labels={notes:'Comment',note:'Comment',label:'Task name',task:'Task name',pct:'Progress %',items:'Done',link:'Session link',plan:'Training plan',impact:'Impact',desc:'Description',obj:'Objective',mentor:'Mentor',teamComment:'Team comment',empComment:'Employee comment',mgrComment:'Manager comment'};
+  var root=path[0],owner=backup.people.find(function(p){return p.id===root;}),parts=[];
+  if(owner||root==='amir'){
+    parts.push(owner?owner.name:'Amir');var id=typeof path[2]==='string'?path[2]:path[2]&&path[2].id;
+    if(['notes','pct','items','status','itemYears'].includes(path[1])){var task=owner&&(owner.items||[]).find(function(t){return t.id===id;});if(!task)(backup.amirTraining||[]).some(function(g){task=(g.items||[]).find(function(t){return t.id===id;});return !!task;});var year=((backup.appState[root]||{}).itemYears||{})[id]||'2026';parts.push(year,task&&(task.label||task.task)||id,labels[path[1]]||path[1]);return parts.join(' → ');}
+  }else parts.push({sessions:'Sessions',myTasks:'My Tasks',machTraining:'Machine Training',machineScores:'Machine level',machineGoals:'Machine goal/deadline',machineComments:'Machine comment',xsections:'X-Section',vacations:'Vacations',_allItems:'Task definition',_amirCustomTasks:'Amir training task'}[root]||root);
+  path.slice(1).forEach(function(token){if(typeof token==='object'){var collection=_importValue10(backup.appState,path.slice(0,path.indexOf(token))),record=_exportValues8(collection).find(function(r){return r&&r.id===token.id;});parts.push(record&&(record.title||record.label||record.machine)||token.id||token.member||'Record '+(Number(token.index)+1));}else parts.push(labels[token]||token);});
+  return parts.filter(Boolean).join(' → ');
+}
+function _planExcelImport10(sheets){
+  if(!sheets.backup8)throw new Error('This workbook has no complete export snapshot. Export a fresh Excel file from the website, make your edits there, and import that file. The current website data was not changed.');
+  var backup=sheets.backup8,baseline=_buildXlsx(backup,true),changes=[],paths=new Map(),ignored=['Export Guide','Full Data Backup','Long Text'];
+  sheets.forEach(function(sheet){
+    if(ignored.includes(sheet.name))return;
+    var original=baseline.find(function(s){return s.name.toLowerCase()===sheet.name.toLowerCase();});if(!original)throw new Error('Unknown worksheet '+sheet.name+'. Keep worksheet names unchanged.');
+    var normalized=Object.assign({},sheet,{name:original.name});
+    var before=_interpretImportSheet10(original,original,backup),after=_interpretImportSheet10(normalized,original,backup),proposals=[];
+    _diffImport10(before,after,[],proposals);
+    proposals.forEach(function(change){
+      if(change.before===undefined&&change.path[1]==='focal'&&typeof change.path[2]==='string')change.before=_cloneImport10((backup.focal[change.path[0]]||{})[change.path[2]]);
+      var key=JSON.stringify(change.path),existing=paths.get(key);if(existing){if(!_sameImport10(existing.after,change.after))throw new Error('Different edits to the same field in '+existing.sheet+' and '+sheet.name+'. Edit this field in only one sheet, or use the same value in both.');existing.sheets.push(sheet.name);return;}
+      change.sheet=sheet.name;change.sheets=[sheet.name];change.description=_describeImport10(change.path,backup);paths.set(key,change);changes.push(change);
+    });
+  });
+  return {backup:backup,changes:changes};
+}
+function _seedImportDestination10(state,path){
+  if(path[0]==='_allItems'){
+    var person=(PEOPLE||[]).find(function(p){return p.id===path[1];});if(!state._allItems)state._allItems={};if(!state._allItems[path[1]]&&person)state._allItems[path[1]]=_cloneImport10(person.items);
+  }
+  if(path[0]==='_amirCustomTasks'){
+    var group=(AMIR_TRAINING||[]).find(function(g){return g.month===path[1];});if(!state._amirCustomTasks)state._amirCustomTasks={};if(!state._amirCustomTasks[path[1]]&&group)state._amirCustomTasks[path[1]]=_cloneImport10(group.items);
+  }
+}
+async function _saveSelectedImportCloud10(selected,stamp){
+  var ref=firebaseDB.ref('appState');await ref.once('value');var failure='';
+  var result=await ref.transaction(function(remote){
+    failure='';if(!remote){failure='The cloud state is unavailable. No cloud data was replaced.';return;}
+    var effective=_effectiveImportState10(remote,true),updated=_cloneImport10(remote);
+    for(var change of selected){
+      var current=_importValue10(effective,change.path);
+      if(!_sameImport10(current,change.current)&&!_sameImport10(current,change.after)){failure='This field changed on the server: '+change.description+'. Review it again before syncing.';return;}
+      try{_seedImportDestination10(updated,change.path);_writeImport10(updated,change.path,change.after);}catch(error){failure=error.message;return;}
+    }
+    updated._excelImportedAt=stamp;return updated;
+  },undefined,false);
+  if(!result.committed)throw new Error(failure||'The cloud update was not committed.');
+}
+function _showExcelImportPreview10(plan){
+  var old=document.getElementById('excel-import-preview10');if(old)old.remove();
+  var current=_effectiveImportState10();
+  plan.changes.forEach(function(change){change.current=_cloneImport10(_importValue10(current,change.path));var actualOriginal=_importValue10(plan.backup.appState,change.path);if(change.current===undefined&&actualOriginal===undefined)change.current=_cloneImport10(change.before);change.conflict=!_sameImport10(change.current,change.before)&&!_sameImport10(change.current,change.after);});
+  var visible=plan.changes.filter(function(change){return !_sameImport10(change.current,change.after);});
+  if(!visible.length){alert('No new Excel edits were found. The website data has not changed.');return;}
+  var overlay=document.createElement('div');overlay.id='excel-import-preview10';overlay.style.cssText='position:fixed;inset:0;z-index:10002;background:#000b;display:flex;align-items:center;justify-content:center;padding:20px';
+  var box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label','Review Excel changes');box.style.cssText='background:#171717;color:#eee;border:1px solid #526632;border-radius:9px;padding:22px;width:900px;max-width:100%;max-height:88vh;overflow:auto';
+  var title=document.createElement('h2');title.textContent='Review Excel changes';box.appendChild(title);
+  var help=document.createElement('p');help.textContent=visible.length+' changed field(s). Only checked changes will be applied. Newer website data in other fields will be kept. Conflicting fields start unchecked.';box.appendChild(help);
+  visible.forEach(function(change,index){var row=document.createElement('div');row.style.cssText='border-top:1px solid #444;padding:14px 0';var label=document.createElement('label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='excel-change10';checkbox.dataset.index=index;checkbox.checked=!change.conflict;label.append(checkbox,document.createTextNode(' '+change.description+(change.conflict?' — also changed on website':'')));row.appendChild(label);
+    var source=document.createElement('small');source.style.display='block';source.textContent='Worksheet: '+change.sheets.join(', ');row.appendChild(source);
+    ['Website now','Excel edit'].forEach(function(caption,i){var details=document.createElement('details'),summary=document.createElement('summary'),text=document.createElement('pre');summary.textContent=caption;text.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto';var value=i?change.after:change.current;text.textContent=typeof value==='string'?value:JSON.stringify(value,null,2);details.append(summary,text);row.appendChild(details);});box.appendChild(row);
+  });
+  var status=document.createElement('p');status.id='excel-import-status10';status.setAttribute('role','status');box.appendChild(status);
+  var cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='padding:9px 18px;margin-right:12px';cancel.onclick=function(){overlay.remove();};
+  var apply=document.createElement('button');apply.type='button';apply.id='excel-import-apply10';apply.textContent='Apply selected changes';apply.style.cssText='padding:9px 18px;background:#76b900;color:#111;border:0;border-radius:4px;font-weight:bold';
+  apply.onclick=async function(){
+    if(!currentUser||currentUser.role!=='manager'){status.textContent='Sign in as manager to import team data.';return;}
+    var selected=Array.from(box.querySelectorAll('.excel-change10:checked')).map(function(input){return visible[Number(input.dataset.index)];});if(!selected.length){status.textContent='Check at least one change to apply.';return;}
+    var fresh=_effectiveImportState10();
+    if(selected.some(function(change){var value=_importValue10(fresh,change.path);if(value===undefined&&_importValue10(plan.backup.appState,change.path)===undefined)value=change.before;return !_sameImport10(value,change.current);})){_showExcelImportPreview10(plan);alert('The website changed while the preview was open. Please review the updated preview.');return;}
+    var next=_cloneImport10(appState);
+    try{selected.forEach(function(change){_seedImportDestination10(next,change.path);_writeImport10(next,change.path,change.after);});apply.disabled=true;cancel.disabled=true;status.textContent='Saving selected changes…';var saved=await _commitExcelState(next,function(stamp){return _saveSelectedImportCloud10(selected,stamp);});overlay.remove();alert('Applied '+selected.length+' changed field(s). '+saved);}
+    catch(error){status.textContent='Import could not be completed: '+error.message;apply.disabled=false;cancel.disabled=false;}
+  };
+  box.append(cancel,apply);overlay.appendChild(box);document.body.appendChild(overlay);
+}
+
 async function importFromFullExcel(input){
+  if(!currentUser||currentUser.role!=='manager'){alert('Sign in as manager to import team data.');input.value='';return;}
   var file=input.files[0];if(!file)return;input.value='';
   try{
     if(typeof JSZip==='undefined')await new Promise(function(resolve,reject){
@@ -2813,10 +3059,7 @@ async function importFromFullExcel(input){
       script.onload=resolve;script.onerror=function(){reject(new Error('Could not load JSZip. Check internet connection.'));};document.head.appendChild(script);
     });
     var sheets=await _readExcelSheets(await file.arrayBuffer());
-    var next=JSON.parse(JSON.stringify(appState)), count=_applyExcelSheets(sheets,next);
-    if(!count&&!sheets.backup8)throw new Error('No matching data rows found. Use an Excel file exported from this app.');
-    var status=await _commitExcelState(next);
-    alert('Imported '+count+' records. '+status);
+    _showExcelImportPreview10(_planExcelImport10(sheets));
   }catch(error){console.error('Excel import failed:',error);alert('Import failed: '+error.message);}
 }
 
@@ -3845,7 +4088,7 @@ function buildPersonPanel(p){
   var done=calcDone(p.id,'2026');
   var pct=calcOverallPct(p.id,'2026');
   var score=ps.teamScore||0;
-  var f=FOCAL[p.id]||{};
+  var f=Object.assign({},FOCAL[p.id]||{},ps.focal||{});
 
   var h='<div class="panel" id="panel-'+p.id+'">';
   h+='<div class="ph"><h2>'+p.name+'</h2><p>'+activeYearPre+' — Half-year check-in</p></div>';
