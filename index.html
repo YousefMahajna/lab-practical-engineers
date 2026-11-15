@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 13.11.26a</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26a</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='13.11.26a';
+var BUILD_TS='15.11.26a';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2852,6 +2852,7 @@ function _guardState(){
       });
     });
   }
+  _restoreAmirTaskMonths2026();
   // Apply deleted tasks filter AFTER custom tasks are restored
   if(appState.amir&&appState.amir._deletedTasks&&appState.amir._deletedTasks.length){
     var _del2=appState.amir._deletedTasks;
@@ -4017,29 +4018,74 @@ function _rebuildAmirPanel(){
   // contenteditable divs auto-expand — no resize needed
   initAmirTextareas();
 }
-function moveAmirTask(event,el){
-  event.stopPropagation();
-  var id=el.dataset?el.dataset.id:String(el);
-  var cm='',td=null;
-  (AMIR_TRAINING||[]).forEach(function(mg){
-    if(!mg||!mg.items)return;
-    mg.items.forEach(function(it){if(it.id===id){cm=mg.month;td=it;}});
+// Saved separately from task progress so changing month retains the task ID.
+function _restoreAmirTaskMonths2026(){
+  var saved=appState.amir&&appState.amir.taskMonths2026;
+  if(!saved||typeof saved!=='object')return;
+  Object.keys(saved).forEach(function(id){
+    var destination=(AMIR_TRAINING||[]).find(function(group){return group&&Array.isArray(group.items)&&group.month===saved[id];});
+    if(!destination)return;
+    var task=destination.items.find(function(item){return item.id===id;});
+    if(!task)(AMIR_TRAINING||[]).some(function(group){if(!group||!Array.isArray(group.items))return false;task=group.items.find(function(item){return item.id===id;});return !!task;});
+    if(!task)return;
+    // Remove any original hardcoded copy as well as old duplicate saved copies.
+    (AMIR_TRAINING||[]).forEach(function(group){if(group&&Array.isArray(group.items))group.items=group.items.filter(function(item){return item.id!==id;});});
+    destination.items.push(task);
   });
-  if(!td){alert('Task not found');return;}
-  var opts=(AMIR_TRAINING||[]).map(function(mg){return mg.month;}).filter(function(m){return m!==cm;}).join('\n');
-  var target=prompt('Move "'+td.task+'" to which month?\n\nCurrent: '+cm+'\nAvailable:\n'+opts);
-  if(!target||!target.trim())return;
-  var tmg=(AMIR_TRAINING||[]).find(function(mg){return mg.month.toLowerCase()===target.trim().toLowerCase();});
-  if(!tmg){alert('Month not found. Type exactly as shown.');return;}
-  var smg=(AMIR_TRAINING||[]).find(function(mg){return mg.month===cm;});
-  if(smg)smg.items=smg.items.filter(function(it){return it.id!==id;});
-  tmg.items.push(td);
-  if(!appState._amirCustomTasks)appState._amirCustomTasks={};
-  if(appState._amirCustomTasks[cm])appState._amirCustomTasks[cm]=appState._amirCustomTasks[cm].filter(function(it){return it.id!==id;});
-  if(!appState._amirCustomTasks[tmg.month])appState._amirCustomTasks[tmg.month]=[];
-  appState._amirCustomTasks[tmg.month].push(td);
-  saveStateNow();_rebuildAmirPanel();
 }
+function _setAmirTaskMonth2026(id,month){
+  if(!appState.amir||String(appState.amir.activeYear||'2026')!=='2026')return false;
+  var destination=(AMIR_TRAINING||[]).find(function(group){return group&&Array.isArray(group.items)&&group.month===month;});
+  if(!destination)return false;
+  var task=null,source=null;
+  (AMIR_TRAINING||[]).some(function(group){if(!group||!Array.isArray(group.items))return false;task=group.items.find(function(item){return item.id===id;});if(task)source=group;return !!task;});
+  if(!task||source===destination)return false;
+  if(!appState.amir.taskMonths2026)appState.amir.taskMonths2026={};
+  appState.amir.taskMonths2026[id]=month;
+  _restoreAmirTaskMonths2026();
+  // Keep task definitions in the existing saved-custom-task format too.
+  if(!appState._amirCustomTasks)appState._amirCustomTasks={};
+  Object.keys(appState._amirCustomTasks).forEach(function(key){
+    var items=appState._amirCustomTasks[key];
+    if(!Array.isArray(items))items=Object.values(items||{});
+    appState._amirCustomTasks[key]=items.filter(function(item){return item&&item.id!==id;});
+  });
+  if(!appState._amirCustomTasks[month])appState._amirCustomTasks[month]=[];
+  appState._amirCustomTasks[month].push(task);
+  appState.amir._activeMonth=month;
+  return true;
+}
+function moveAmirTask(event,el){
+  if(event)event.stopPropagation();
+  if(currentUser&&currentUser.role==='viewer')return;
+  if(!appState.amir||String(appState.amir.activeYear||'2026')!=='2026')return;
+  var id=el&&el.dataset?el.dataset.id:String(el),task=null,source=null;
+  (AMIR_TRAINING||[]).some(function(group){if(!group||!Array.isArray(group.items))return false;task=group.items.find(function(item){return item.id===id;});if(task)source=group;return !!task;});
+  if(!task||document.getElementById('amir-move-dialog5'))return;
+  var overlay=document.createElement('div');overlay.id='amir-move-dialog5';
+  overlay.style.cssText='position:fixed;inset:0;background:#000a;z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+  var box=document.createElement('div');box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-labelledby','amir-move-title5');
+  box.style.cssText='width:420px;max-width:100%;box-sizing:border-box;background:#181818;color:#eee;border:1px solid #526632;border-radius:8px;padding:22px';
+  var title=document.createElement('h3');title.id='amir-move-title5';title.textContent='Move task to another month';title.style.margin='0 0 12px';
+  var description=document.createElement('p');description.textContent=task.task;description.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';
+  var label=document.createElement('label');label.textContent='Move to';label.htmlFor='amir-move-month5';
+  var select=document.createElement('select');select.id='amir-move-month5';select.style.cssText='display:block;width:100%;margin:8px 0 18px;padding:9px;background:#111;color:#eee;border:1px solid #666;border-radius:4px';
+  (AMIR_TRAINING||[]).forEach(function(group){if(!group||!group.month||!Array.isArray(group.items))return;var option=document.createElement('option');option.value=group.month;option.textContent=group.month+(group===source?' (current)':'');option.selected=group===source;select.appendChild(option);});
+  var actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:flex-end;gap:10px';
+  var cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.style.cssText='padding:8px 16px;background:#282828;color:#eee;border:1px solid #777;border-radius:4px';
+  var move=document.createElement('button');move.type='button';move.id='amir-move-confirm5';move.textContent='Move task';move.disabled=true;move.style.cssText='padding:8px 16px;background:#76b900;color:#111;border:0;border-radius:4px;font-weight:bold';
+  function close(){document.removeEventListener('keydown',onKey);overlay.remove();if(el&&el.isConnected)el.focus();}
+  function onKey(e){if(e.key==='Escape')close();}
+  cancel.onclick=close;overlay.onclick=function(e){if(e.target===overlay)close();};document.addEventListener('keydown',onKey);
+  select.onchange=function(){move.disabled=select.value===source.month;};
+  move.onclick=function(){
+    if(currentUser&&currentUser.role==='viewer')return;
+    if(!_setAmirTaskMonth2026(id,select.value))return;
+    close();saveStateNow();_rebuildAmirPanel();
+  };
+  actions.append(cancel,move);box.append(title,description,label,select,actions);overlay.appendChild(box);document.body.appendChild(overlay);select.focus();
+}
+
 function deleteAmirTask(event,el){
   event.stopPropagation();
   var id=el.dataset?el.dataset.id:String(el);
@@ -4187,7 +4233,7 @@ function buildAmirPanel(){
       h+='<div style="display:flex;align-items:center;gap:3px"><input class="pct-input" type="number" min="0" max="100" value="'+apct+'" id="amirpct-inp-'+it.id+'" onclick="event.stopPropagation()" oninput="if(+this.value>100)this.value=100;if(+this.value<0)this.value=0;saveAmirPct(\''+it.id+'\',this.value)"><span class="pct-label">%</span></div>';
       h+='<div class="pct-bar-wrap" style="margin-top:2px;max-width:none"><div class="pct-bar" id="amirpctbar-'+it.id+'" style="width:'+apct+'%;background:'+barColor+'"></div></div>';
       h+='</td>';
-      h+='<td class="anc" id="anc-'+it.id+'"><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:54px">'+(note?'<div style="height:16px;display:flex;align-items:center;justify-content:center"><span class="amir-note-dot" style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block"></span></div>':'<div style="height:16px"></div>')+'<button class="amr-btn" data-id="'+it.id+'" onclick="moveAmirTask(event,this)" title="Move">&#8645;</button>';
+      h+='<td class="anc" id="anc-'+it.id+'"><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:54px">'+(note?'<div style="height:16px;display:flex;align-items:center;justify-content:center"><span class="amir-note-dot" style="width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block"></span></div>':'<div style="height:16px"></div>')+'<button class="amr-btn" data-id="'+it.id+'" onclick="moveAmirTask(event,this)" title="Move task to another month" aria-label="Move task to another month">&#8645;</button>';
       h+='<button class="nb'+(note?' hn':'')+'" id="nb-a-'+it.id+'" onclick="event.stopPropagation();toggleAmirRow(\''+it.id+'\');">&#9998;</button>';
       h+='<button class="amr-btn" data-id="'+it.id+'" onclick="event.stopPropagation();editAmirTask(this.dataset.id)" title="Edit task">&#9998;&#xFE0E;</button>';
       h+='<button class="amr-del amr-btn" data-id="'+it.id+'" onclick="deleteAmirTask(event,this)" title="Delete">&#10005;</button></div></td>';
