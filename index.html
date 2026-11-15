@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26b</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26c</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='15.11.26b';
+var BUILD_TS='15.11.26c';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3230,7 +3230,7 @@ function addAmirGoal(yr){
 function toggleAmirGoal(yr,id){
   if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
   var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
-  if(g)g.done=!g.done;
+  if(g){g.done=!g.done;g.pct=g.done?100:0;}
   saveState();
   setAmirYear(yr);
 }
@@ -3258,6 +3258,7 @@ function setAmirYear(year){
     if(ft)ft.click();
     initAmirTextareas();
   },30);
+  updateAmirProgress();
 }
 
 function moveItemToYear(id,pid,toYear){
@@ -3336,6 +3337,7 @@ function setPersonYear(pid,year){
       },30);
     }
   }
+  updateProgress(pid);
 }
 
 function copyFocalDraft(pid,field){
@@ -3650,9 +3652,9 @@ function buildPersonPanel(p){
   p.items.forEach(function(it){if(appState[p.id].items[it.id]===undefined)appState[p.id].items[it.id]=false;if(appState[p.id].notes[it.id]===undefined)appState[p.id].notes[it.id]='';if(appState[p.id].pct[it.id]===undefined)appState[p.id].pct[it.id]=0;});
   var ps=appState[p.id];
   var activeYearPre=(appState[p.id]&&appState[p.id].activeYear)||'2026';
-  var total=p.items.length+(p.site?1:0);
-  var done=calcDone(p.id);
-  var pct=calcOverallPct(p.id);
+  var total=calcTotal(p.id,'2026');
+  var done=calcDone(p.id,'2026');
+  var pct=calcOverallPct(p.id,'2026');
   var score=ps.teamScore||0;
   var f=FOCAL[p.id]||{};
 
@@ -3692,7 +3694,7 @@ function buildPersonPanel(p){
     var vdY=getVacDays(p.id,activeYear);
     var fsMidY=getFocalStatus(p.id,'focal_mid_'+activeYear);
     var fsEndY=getFocalStatus(p.id,'focal_end_'+activeYear);
-    h+='<div class="itab active" onclick="switchInner(\''+p.id+'\',\'goals_'+activeYear+'\',this)">Goals & Deliverables'+tabStat('0%')+'</div>';
+    h+='<div class="itab active" onclick="switchInner(\''+p.id+'\',\'goals_'+activeYear+'\',this)">Goals & Deliverables'+tabStat(calcOverallPct(p.id,activeYear)+'%')+'</div>';
     h+='<div class="itab" onclick="switchInner(\''+p.id+'\',\'vacation\',this)">Vacation'+tabStat(vdY?vdY+' days':'')+'</div>';
     if(showFocals){
       h+='<div class="itab" onclick="switchInner(\''+p.id+'\',\'focal_mid_'+activeYear+'\',this)">Mid Focal Review'+tabStat(fsMidY||'None')+'</div>';
@@ -3723,10 +3725,7 @@ function buildPersonPanel(p){
 
   h+='<div class="sec"><div class="st">Goals and Deliverables</div>';
   var itemYears=(appState[p.id]&&appState[p.id].itemYears)||{};
-  var visibleItems=p.items.filter(function(it){
-    var iy=itemYears[it.id]||'2026';
-    return iy===activeYear;
-  });
+  var visibleItems=_personYearTasks7(p.id,'2026');
   if(visibleItems.length===0){
     h+='<p style="color:var(--txm);font-style:italic;padding:20px 0">No goals assigned to '+activeYear+' yet. Use ✏ Edit on a goal to move it here.</p>';
   }
@@ -3840,8 +3839,9 @@ function buildPersonPanel(p){
 
   // FUTURE YEAR GOALS PANELS (2027, 2028 - show items assigned to that year + team dynamics)
   ['2027','2028'].forEach(function(yr){
-    var yrItems=p.items.filter(function(it){return (itemYears[it.id]||'2026')===yr;});
+    var yrItems=_personYearTasks7(p.id,yr);
     h+='<div class="ip" id="ip-'+p.id+'-goals_'+yr+'">';
+    h+=_taskProgressBar7(p.id,yr);
     h+='<div style="background:var(--acb);border:1px solid var(--ace);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--ac)">\uD83D\uDCCB <strong>'+yr+' Goals & Deliverables</strong></div>';
     h+='<div class="sec"><div class="st">Goals and Deliverables</div>';
     if(yrItems.length===0){
@@ -4146,10 +4146,8 @@ function switchAmirMonth(month){
   },20);
 }
 function buildAmirPanel(){
-  var total=(AMIR_TRAINING||[]).reduce(function(n,m){return n+(m&&m.items?m.items.length:0);},0);
-  var done=Object.values(appState.amir.items).filter(Boolean).length;
-  var _apcts=[];(AMIR_TRAINING||[]).forEach(function(mg){if(!mg||!mg.items)return;mg.items.forEach(function(it){_apcts.push(appState.amir.pct&&appState.amir.pct[it.id]!==undefined?appState.amir.pct[it.id]:0);});});
-  var pct=_apcts.length?Math.round(_apcts.reduce(function(a,b){return a+b;},0)/_apcts.length):0;
+  var trainingProgress=_taskProgress7('amir','2026');
+  var total=trainingProgress.total,done=trainingProgress.done,pct=trainingProgress.pct;
   var h='<div class="panel" id="panel-amir">';
   h+='<div class="ph"><h2>Amir — Onboarding Plan</h2><p>New employee training tracker</p></div>';
   // Amir year selector (2026+, no 2025)
@@ -4171,12 +4169,12 @@ function buildAmirPanel(){
 
   h+='<div class="itabs">';
   if(amirYear==='2026'){
-    h+='<div class="itab active" onclick="switchInner(\'amir\',\'training\',this)">Training Plan'+amirTabStat(Math.round(done/total*100)+'%')+'</div>';
+    h+='<div class="itab active" onclick="switchInner(\'amir\',\'training\',this)">Training Plan'+amirTabStat(pct+'%')+'</div>';
     h+='<div class="itab" onclick="switchInner(\'amir\',\'xsection\',this)">🔬 X-Section'+amirTabStat(amirXS?amirXS+' sessions':'')+'</div>';
     h+='<div class="itab" onclick="switchInner(\'amir\',\'vacation\',this)">Vacation'+amirTabStat(amirVD?amirVD+' days':'')+'</div>';
   } else {
     var amirFsEnd=getFocalStatus('amir','focal_end_'+amirYear);
-    h+='<div class="itab active" onclick="switchInner(\'amir\',\'goals_'+amirYear+'\',this)">Goals & Deliverables'+amirTabStat('0%')+'</div>';
+    h+='<div class="itab active" onclick="switchInner(\'amir\',\'goals_'+amirYear+'\',this)">Goals & Deliverables'+amirTabStat(calcOverallPct('amir',amirYear)+'%')+'</div>';
     h+='<div class="itab" onclick="switchInner(\'amir\',\'xsection\',this)">🔬 X-Section'+amirTabStat(amirXS?amirXS+' sessions':'')+'</div>';
     h+='<div class="itab" onclick="switchInner(\'amir\',\'vacation\',this)">Vacation'+amirTabStat(amirVD?amirVD+' days':'')+'</div>';
     h+='<div class="itab" onclick="switchInner(\'amir\',\'focal_end_'+amirYear+'\',this)">Focal Review'+amirTabStat(amirFsEnd||'None')+'</div>';
@@ -4196,7 +4194,7 @@ function buildAmirPanel(){
     if(!mg||!mg.month||!mg.items)return;
     var mTotal=mg.items.length;
     var mDone=mg.items.filter(function(it){return appState.amir.items&&appState.amir.items[it.id];}).length;
-    _monthPct[mg.month]=mTotal>0?Math.round(mDone/mTotal*100):0;
+    _monthPct[mg.month]=_summarizeTaskRows7(_amirTrainingRows7(mg)).pct;
   });
 
   h+='<div style="display:flex;gap:0;border-bottom:1px solid #222;margin-bottom:14px;overflow-x:auto">';
@@ -4244,7 +4242,7 @@ function buildAmirPanel(){
     // Month progress + summary
     var mgDone=(mg.items||[]).filter(function(x){return appState.amir&&appState.amir.items&&appState.amir.items[x.id];}).length;
     var mgTotal=(mg.items||[]).length;
-    var mgPct=mgTotal?Math.round(mgDone/mgTotal*100):0;
+    var mgPct=_summarizeTaskRows7(_amirTrainingRows7(mg)).pct;
     var mgNote=String((appState.amir.monthSummary&&appState.amir.monthSummary[mg.month])||'');
     var amirNote=String((appState.amir.amirMonthNote&&appState.amir.amirMonthNote[mg.month])||'');
     var isManager=!currentUser||(currentUser.role==='manager');
@@ -4339,6 +4337,7 @@ function buildAmirPanel(){
   // AMIR 2027/2028: goals + focal panels
   ['2027','2028'].forEach(function(yr){
     h+='<div class="ip" id="ip-amir-goals_'+yr+'">';
+    h+=_taskProgressBar7('amir',yr);
     h+='<div style="background:var(--acb);border:1px solid var(--ace);border-radius:var(--r);padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--ac)">\uD83D\uDCCB <strong>'+yr+' Goals & Deliverables</strong></div>';
     // Show existing amir goals for this year
     var amirGoals=(appState.amir&&appState.amir['goals_'+yr])||[];
@@ -4350,7 +4349,7 @@ function buildAmirPanel(){
     amirGoals.forEach(function(g){
       amirPs.items[g.id]=g.done||false;
       amirPs.notes[g.id]=g.note||'';
-      amirPs.pct[g.id]=g.pct||0;
+      amirPs.pct[g.id]=_progressPercent7(g.pct,g.done);
     });
     if(amirGoals.length===0){
       h+='<p style="color:var(--txm);font-style:italic;padding:12px 0 4px">No goals for '+yr+' yet — add one below.</p>';
@@ -5708,70 +5707,83 @@ function saveMachComment(machId,engId,val){
 }
 
 // ====== INTERACTIONS ======
-function calcOverallPct(pid){
-  if(pid==='amir'){
-    // Amir: average of all training task percentages
-    var pcts=[];
-    (AMIR_TRAINING||[]).forEach(function(mg){
-      (mg.items||[]).forEach(function(it){
-        var v=(appState.amir&&appState.amir.pct&&appState.amir.pct[it.id]!==undefined)?appState.amir.pct[it.id]:0;
-        pcts.push(Number(v));
-      });
-    });
-    if(!pcts.length)return 0;
-    return Math.round(pcts.reduce(function(a,b){return a+b;},0)/pcts.length);
-  }
-  var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
-  if(!p)return 0;
-  var pcts=[];
-  (p.items||[]).forEach(function(it){
-    var v=(appState[pid]&&appState[pid].pct&&appState[pid].pct[it.id]!==undefined)?appState[pid].pct[it.id]:0;
-    pcts.push(Number(v));
+function _progressValues7(value){return Array.isArray(value)?value:Object.values(value||{});}
+function _progressPercent7(value,done){
+  var number=value===undefined||value===null?(done?100:0):Number(value);
+  return Number.isFinite(number)?Math.min(100,Math.max(0,number)):0;
+}
+function _personYearTasks7(pid,year){
+  var person=(PEOPLE||[]).find(function(p){return p.id===pid;});if(!person)return [];
+  var state=appState[pid]||{},years=state.itemYears||{},deleted=_progressValues7(state.deletedItems),seen={};
+  return (person.items||[]).filter(function(item){
+    if(!item||!item.id||seen[item.id]||deleted.indexOf(item.id)>=0||String(years[item.id]||'2026')!==String(year))return false;
+    seen[item.id]=true;return true;
   });
-  if(p.site) pcts.push(appState[pid]&&appState[pid].site?100:0);
-  if(!pcts.length)return 0;
-  return Math.round(pcts.reduce(function(a,b){return a+b;},0)/pcts.length);
 }
-function calcDone(pid){
-  var p=(PEOPLE||[]).find(function(x){return x.id===pid;});
-  var d=Object.values(appState[pid].items).filter(Boolean).length;
-  if(p.site&&appState[pid].site)d++;return d;
-}
-function calcTotal(pid){var p=(PEOPLE||[]).find(function(x){return x.id===pid;});return p.items.length+(p.site?1:0);}
-function updateProgress(pid){
-  var done=calcDone(pid),total=calcTotal(pid);
-  var pct=calcOverallPct(pid);
-  var pf=document.getElementById('prog-'+pid);if(pf)pf.style.width=pct+'%';
-  var pt=document.getElementById('progt-'+pid);if(pt)pt.textContent=done+' / '+total+' done · '+pct+'% overall';
-  var np=document.getElementById('navp-'+pid);if(np)np.textContent=pct+'%';
-}
-function updateAmirProgress(){
-  var total=(AMIR_TRAINING||[]).reduce(function(n,m){return n+(m&&m.items?m.items.length:0);},0);
-  var done=Object.values(appState.amir.items).filter(Boolean).length;
-  // Overall % = average of all item pct values
-  var pcts=[];
-  (AMIR_TRAINING||[]).forEach(function(mg){if(!mg||!mg.items)return;mg.items.forEach(function(it){pcts.push(appState.amir.pct&&appState.amir.pct[it.id]!==undefined?appState.amir.pct[it.id]:0);});});
-  var pct=pcts.length?Math.round(pcts.reduce(function(a,b){return a+b;},0)/pcts.length):0;
-  var pf=document.getElementById('prog-amir');if(pf)pf.style.width=pct+'%';
-  var pt=document.getElementById('progt-amir');if(pt)pt.textContent=done+' / '+total+' done · '+pct+'% overall';
-  document.getElementById('navp-amir').textContent=pct+'%';
-}
-function updateAllNav(){
-  try{
-    (PEOPLE||[]).forEach(function(p){
-      var el=document.getElementById('navp-'+p.id);
-      if(el)el.textContent=calcOverallPct(p.id)+'%';
+function _amirTrainingRows7(group){
+  var state=appState.amir||{},deleted=_progressValues7(state._deletedTasks),seen={},rows=[];
+  (group?[group]:(AMIR_TRAINING||[])).forEach(function(month){
+    if(!month||!Array.isArray(month.items))return;
+    month.items.forEach(function(item){
+      if(!item||!item.id||seen[item.id]||deleted.indexOf(item.id)>=0)return;seen[item.id]=true;
+      var done=!!(state.items&&state.items[item.id]);
+      rows.push({done:done,pct:_progressPercent7(state.pct&&state.pct[item.id],done)});
     });
-    updateAmirProgress();
-  }catch(e){}
+  });return rows;
 }
+function _taskProgress7(pid,year){
+  var state=appState[pid]||{};year=String(year||state.activeYear||'2026');
+  if(pid==='amir'){
+    if(year==='2026')return _summarizeTaskRows7(_amirTrainingRows7());
+    var seen={};return _summarizeTaskRows7(_progressValues7(state['goals_'+year]).filter(function(goal){if(!goal||!goal.id||seen[goal.id])return false;seen[goal.id]=true;return true;}).map(function(goal){return {done:!!goal.done,pct:_progressPercent7(goal.pct,goal.done)};}));
+  }
+  return _summarizeTaskRows7(_personYearTasks7(pid,year).map(function(item){var done=!!(state.items&&state.items[item.id]);return {done:done,pct:_progressPercent7(state.pct&&state.pct[item.id],done)};}));
+}
+function _summarizeTaskRows7(rows){
+  var total=rows.length;return {total:total,done:rows.filter(function(row){return row.done;}).length,pct:total?Math.round(rows.reduce(function(sum,row){return sum+row.pct;},0)/total):0};
+}
+function calcOverallPct(pid,year){return _taskProgress7(pid,year).pct;}
+function calcDone(pid,year){return _taskProgress7(pid,year).done;}
+function calcTotal(pid,year){return _taskProgress7(pid,year).total;}
+function _taskProgressBar7(pid,year){
+  var result=_taskProgress7(pid,year),suffix=pid+'-'+year;
+  return '<div class="pr"><div class="pb"><div class="pf" id="prog-'+suffix+'" style="width:'+result.pct+'%"></div></div><span class="pt" id="progt-'+suffix+'">'+result.done+' / '+result.total+' done · '+result.pct+'% overall</span></div>';
+}
+function _updateTaskProgress7(pid,year){
+  var active=String((appState[pid]&&appState[pid].activeYear)||'2026');year=String(year||active);
+  var result=_taskProgress7(pid,year),suffix=pid+(year==='2026'?'':'-'+year);
+  var bar=document.getElementById('prog-'+suffix);if(bar)bar.style.width=result.pct+'%';
+  var text=document.getElementById('progt-'+suffix);if(text)text.textContent=result.done+' / '+result.total+' done · '+result.pct+'% overall';
+  var nav=document.getElementById('navp-'+pid);if(nav)nav.textContent=calcOverallPct(pid,active)+'%';
+  if(year!==active)return;
+  var panel=document.getElementById('panel-'+pid);if(!panel)return;
+  panel.querySelectorAll('.itabs > .itab').forEach(function(tab){
+    if(!/^(Goals & Deliverables|Training Plan)/.test(tab.textContent.trim()))return;
+    var badge=tab.querySelector('div');if(!badge){badge=document.createElement('div');badge.style.cssText='font-size:10px;color:var(--ac);opacity:.8;margin-top:1px';tab.appendChild(badge);}
+    badge.textContent=result.pct+'%';
+  });
+}
+function updateProgress(pid){_updateTaskProgress7(pid);}
+function updateAmirProgress(){_updateTaskProgress7('amir');_refreshAmirMonthPcts();}
+function updateAllNav(){(PEOPLE||[]).forEach(function(p){updateProgress(p.id);});updateAmirProgress();}
+function _refreshAmirFutureGoal7(year,id){
+  var goal=_progressValues7(appState.amir['goals_'+year]).find(function(g){return g.id===id;});
+  var panel=document.getElementById('ip-amir-goals_'+year);if(!goal||!panel)return;
+  var row=Array.from(panel.querySelectorAll('.iw')).find(function(w){return w.dataset.id===id;});
+  if(row){var pct=_progressPercent7(goal.pct,goal.done),item=row.querySelector('.it'),check=row.querySelector('.cb'),bar=row.querySelector('.pct-bar');
+    if(item)item.classList.toggle('done',!!goal.done);if(check)check.textContent=goal.done?'✓':'';
+    if(bar){bar.style.width=pct+'%';bar.style.background=pct>=100?'var(--gn)':pct>=50?'var(--or)':'var(--ac)';}
+  }
+  _updateTaskProgress7('amir',year);
+}
+
 function toggleItem(id,pid){
   // Handle Amir future year goals (pid = 'amir_2027' etc)
   if(pid&&pid.startsWith('amir_')){
     var yr=pid.split('_')[1];
     if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
     var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
-    if(g)g.done=!g.done;
+    if(g){g.done=!g.done;g.pct=g.done?100:0;}
     saveState();setAmirYear(yr);return;
   }
   var newVal=!appState[pid].items[id];
@@ -5799,7 +5811,7 @@ function _refreshAmirMonthPcts(){
     if(!mg||!mg.month||!mg.items)return;
     var mTotal=mg.items.length;
     var mDone=mg.items.filter(function(it){return appState.amir.items&&appState.amir.items[it.id];}).length;
-    var pct=mTotal>0?Math.round(mDone/mTotal*100):0;
+    var pct=_summarizeTaskRows7(_amirTrainingRows7(mg)).pct;
     var pctColor=pct>=100?'#76b900':pct>=50?'#f59e0b':'#888';
     // Find the month tab button and update its pct div
     var btns=document.querySelectorAll('.amir-month-tab');
@@ -5971,7 +5983,7 @@ function savePct(id,pid,val){
     if(!Array.isArray(appState.amir['goals_'+yr]))appState.amir['goals_'+yr]=Object.values(appState.amir['goals_'+yr]||[]);
     var g=appState.amir['goals_'+yr].find(function(x){return x.id===id;});
     if(g){g.pct=parseInt(val)||0;g.done=g.pct>=100;}
-    saveState();return;
+    _refreshAmirFutureGoal7(yr,id);saveState();return;
   }
   var v=Math.max(0,Math.min(100,parseInt(val)||0));
   if(!appState[pid].pct)appState[pid].pct={};
