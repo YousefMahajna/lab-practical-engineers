@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26d</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26e</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='15.11.26d';
+var BUILD_TS='15.11.26e';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2107,15 +2107,30 @@ function _preserveExportMetadata8(sheets,state){
   });
 }
 
+function _encodeExcelText9(value){
+  return String(value).replace(/_x([0-9a-f]{4})_/gi,'_x005F_x$1_').replace(/[\u0000-\u0008\u000B-\u001F\uFFFE\uFFFF]/g,function(character){return '_x'+character.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0')+'_';});
+}
+function _decodeExcelText9(value){return String(value).replace(/_x([0-9a-f]{4})_/gi,function(match,hex){return String.fromCharCode(parseInt(hex,16));});}
+async function _validateWorkbookXml9(zip){
+  var files=Object.values(zip.files).filter(function(file){return !file.dir&&/\.(xml|rels)$/i.test(file.name);});
+  for(var file of files){
+    try{_excelXml(await file.async('string'));}
+    catch(error){throw new Error('Excel export stopped because '+file.name+' is invalid. The website data has not been changed.');}
+  }
+}
+function _runExcelExport9(snapshot){
+  return Promise.resolve().then(function(){return _buildXlsx(snapshot);}).catch(function(error){console.error('Excel export failed:',error);alert('Excel export failed: '+error.message);});
+}
+
 function exportFullExcel(){
   var snapshot=_captureSystemExport8();
   if(typeof JSZip==='undefined'){
     var s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload=function(){_buildXlsx(snapshot);};
+    s.onload=function(){_runExcelExport9(snapshot);};
     s.onerror=function(){alert('Could not load JSZip. Check internet connection.');};
     document.head.appendChild(s);
-  } else {_buildXlsx(snapshot); }
+  } else {_runExcelExport9(snapshot); }
 }
 
 function _buildXlsx(snapshot){
@@ -2190,7 +2205,7 @@ function _buildXlsx(snapshot){
     v=String(v==null?'':v);
     if(!v)return cB(sId);
     if(v.length>30000){var id=String(longTexts8.length+1);_exportChunks8(v).forEach(function(part,index){longTexts8.push({'Text ID':id,Part:index+1,Text:part});});v='[[LAB_FULL_TEXT_'+id+']]';}
-    return '<c r="ADDR" s="'+sId+'" t="s"><v>'+ss(v)+'</v></c>';
+    return '<c r="ADDR" s="'+sId+'" t="inlineStr"><is><t xml:space="preserve">'+xesc(_encodeExcelText9(v))+'</t></is></c>';
   }
   function cN(v,sId){return '<c r="ADDR" s="'+sId+'" t="n"><v>'+Number(v||0)+'</v></c>';}
   function cB(sId){return '<c r="ADDR" s="'+sId+'"/>';}
@@ -2532,9 +2547,10 @@ function _buildXlsx(snapshot){
   zip.file('xl/sharedStrings.xml',ssxml);
   sXmls.forEach(function(xml,i){
     var links=[];
-    xml.replace(/<c\b([^>]*?)t="s"[^>]*><v>(\d+)<\/v><\/c>/g,function(cell,attributes,index){
-      var value=_ss[Number(index)],ref=(attributes.match(/r="([A-Z]+\d+)"/)||[])[1];
-      if(ref&&/^https?:\/\/[^\s<>"']+$/i.test(value||'')&&value.length<8192)links.push({ref:ref,url:value});return cell;
+    _excelElements(_excelXml(xml),'c').forEach(function(cell){
+      if(cell.getAttribute('t')!=='inlineStr')return;
+      var value=_decodeExcelText9(_excelElements(cell,'t').map(function(text){return text.textContent;}).join('')),ref=cell.getAttribute('r');
+      if(ref&&/^https?:\/\/[^\s<>"']+$/i.test(value||'')&&value.length<8192)links.push({ref:ref,url:value});
     });
     if(links.length){
       var refs='<hyperlinks>',rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
@@ -2544,9 +2560,9 @@ function _buildXlsx(snapshot){
     }
     zip.file('xl/worksheets/sheet'+(i+1)+'.xml',xml);
   });
-  return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}).then(function(blob){
+  return _validateWorkbookXml9(zip).then(function(){return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}).then(function(blob){
     var a=document.createElement('a');var d=new Date();
-    a.download='Lab_Engineers_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'_8.xlsx';
+    a.download='Lab_Engineers_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'_9.xlsx';
     a.href=URL.createObjectURL(blob);document.body.appendChild(a);a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
   });
@@ -2568,7 +2584,7 @@ function _excelRows(xml,strings){
       var type=c.getAttribute('t'),v=_excelElements(c,'v')[0],value=v?v.textContent:'';
       if(type==='s')value=strings[Number(value)]||'';
       else if(type==='inlineStr')value=_excelElements(c,'t').map(function(t){return t.textContent;}).join('');
-      while(cells.length<=col)cells.push('');cells[col]=value;
+      while(cells.length<=col)cells.push('');cells[col]=(type==='s'||type==='inlineStr')?_decodeExcelText9(value):value;
     });return cells;
   });
 }
