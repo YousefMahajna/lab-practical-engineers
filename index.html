@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26a</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26b</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='15.11.26a';
+var BUILD_TS='15.11.26b';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -3994,8 +3994,8 @@ function initAmirTextareas(){
     document.querySelectorAll('#panel-amir .amir-month-block').forEach(function(block){
       if(block.style.display==='none')return;
       block.querySelectorAll('textarea').forEach(function(ta){
-        ta.style.height='auto';
-        ta.style.height=ta.scrollHeight+'px';
+        if(ta.matches('.np2 textarea,.ntd textarea'))_fitTaskDetails6(ta);
+        else{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
       });
     });
     // Big manager notes textarea
@@ -4140,7 +4140,8 @@ function switchAmirMonth(month){
   setTimeout(function(){
     var active=document.querySelector('.amir-month-block[data-month="'+month+'"]');
     if(active)active.querySelectorAll('textarea').forEach(function(ta){
-      ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';
+      if(ta.matches('.np2 textarea,.ntd textarea'))_fitTaskDetails6(ta);
+      else{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
     });
   },20);
 }
@@ -5837,11 +5838,36 @@ function toggleAmirItem(id){
   _refreshAmirMonthPcts();
   updateAmirProgress();saveState();
 }
+// Fit expanded task notes after their container becomes visible.
+function _fitTaskDetails6(textarea){
+  if(!textarea||!textarea.matches('.np2 textarea,.ntd textarea')||!textarea.getClientRects().length||textarea.getBoundingClientRect().width===0)return;
+  textarea.style.height='auto';
+  var border=textarea.offsetHeight-textarea.clientHeight;
+  textarea.style.height=Math.max(52,textarea.scrollHeight+border)+'px';
+}
+function _fitVisibleTaskDetails6(){
+  document.querySelectorAll('.panel.active .np2 textarea,.panel.active .ntd textarea').forEach(_fitTaskDetails6);
+}
+(function(){
+  function fitEvent(event){_fitTaskDetails6(event.target);}
+  // Delegation also covers rebuilt panels and newly added tasks.
+  document.addEventListener('input',fitEvent);
+  document.addEventListener('focusin',fitEvent);
+  var frame=null;
+  function schedule(){if(frame!==null)return;frame=requestAnimationFrame(function(){frame=null;_fitVisibleTaskDetails6();});}
+  window.addEventListener('resize',schedule);
+  var panels=document.getElementById('panels');
+  if(panels&&typeof ResizeObserver!=='undefined'){
+    var width=panels.getBoundingClientRect().width;
+    new ResizeObserver(function(entries){var next=entries[0].contentRect.width;if(next!==width){width=next;schedule();}}).observe(panels);
+  }
+})();
+
 function toggleNote(id,pid){
   if(pid&&pid.startsWith('amir_')){
     var wrap=document.getElementById('iw-'+id);if(!wrap)return;
     wrap.classList.toggle('open');
-    var ta=wrap.querySelector('textarea');if(wrap.classList.contains('open')&&ta)ta.focus();
+    var ta=wrap.querySelector('textarea');if(wrap.classList.contains('open')&&ta){_fitTaskDetails6(ta);ta.focus();}
     return;
   }
   // Search within active IP panel to avoid duplicate IDs across year panels
@@ -5853,7 +5879,7 @@ function toggleNote(id,pid){
   var btn=wrap.querySelector('[id="nb-'+id+'"]')||document.getElementById('nb-'+id);
   if(wrap.classList.contains('open')){
     var ta=wrap.querySelector('textarea');
-    if(ta){ta.focus();ta.style.height='auto';ta.style.height=Math.max(52,ta.scrollHeight)+'px';}
+    if(ta){_fitTaskDetails6(ta);ta.focus();}
     if(btn)btn.classList.add('hn');
   } else if(!appState[pid].notes[id]&&btn)btn.classList.remove('hn');
 }
@@ -5861,7 +5887,7 @@ function toggleSiteNote(pid){
   var wrap=document.getElementById('iw-'+pid+'-site');if(!wrap)return;
   wrap.classList.toggle('open');
   var btn=document.getElementById('nb-'+pid+'-site');
-  if(wrap.classList.contains('open')){wrap.querySelector('textarea').focus();if(btn)btn.classList.add('hn');}
+  if(wrap.classList.contains('open')){var ta=wrap.querySelector('textarea');_fitTaskDetails6(ta);ta.focus();if(btn)btn.classList.add('hn');}
   else if(!appState[pid].siteNote&&btn)btn.classList.remove('hn');
 }
 function handleAmirRowClick(event,tr){
@@ -5874,7 +5900,7 @@ function handleAmirRowClick(event,tr){
   if(!nr)return;
   var opening=nr.style.display!=='table-row';
   nr.style.display=opening?'table-row':'none';
-  if(opening){var ta=nr.querySelector('textarea');if(ta)ta.focus();}
+  if(opening){var ta=nr.querySelector('textarea');if(ta){_fitTaskDetails6(ta);ta.focus();}}
   var btn=document.getElementById('nb-a-'+id);
   if(btn){var note=(appState.amir&&appState.amir.notes)?appState.amir.notes[id]||'':'';if(!note.trim()&&!opening)btn.classList.remove('hn');}
 }
@@ -5882,7 +5908,7 @@ function toggleAmirRow(id){
   var nr=document.getElementById('anr-'+id);var btn=document.getElementById('nb-a-'+id);if(!nr)return;
   var vis=nr.style.display!=='none';
   nr.style.display=vis?'none':'table-row';
-  if(!vis){nr.querySelector('textarea').focus();if(btn)btn.classList.add('hn');}
+  if(!vis){var ta=nr.querySelector('textarea');_fitTaskDetails6(ta);ta.focus();if(btn)btn.classList.add('hn');}
   else if(!appState.amir.notes[id]&&btn)btn.classList.remove('hn');
 }
 function editAmirTask(id){
