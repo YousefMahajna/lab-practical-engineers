@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26c</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26d</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='15.11.26c';
+var BUILD_TS='15.11.26d';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -2025,17 +2025,104 @@ function exportMyFocal(){
 }
 
 
+// Snapshot only app data and task definitions. Never call saveState during export.
+function _captureSystemExport8(){
+  return JSON.parse(JSON.stringify({format:'Lab Practical Engineer Excel Backup',version:2,exportedAt:new Date().toISOString(),revision:BUILD_TS,appState:appState,people:PEOPLE,amirTraining:AMIR_TRAINING,focal:FOCAL,defaultMachines:DEFAULT_MACHINES,team:TEAM}));
+}
+function _exportValues8(value){return Array.isArray(value)?value:Object.values(value||{});}
+function _exportYears8(backup){
+  var years=new Set(['2025','2026','2027','2028']);
+  Object.keys(backup.appState||{}).forEach(function(pid){var state=backup.appState[pid];if(!state||typeof state!=='object')return;
+    Object.keys(state).forEach(function(key){(key.match(/20\d\d/g)||[]).forEach(function(year){years.add(year);});});
+    Object.values(state.itemYears||{}).forEach(function(year){if(/^20\d\d$/.test(String(year)))years.add(String(year));});
+  });return Array.from(years).sort();
+}
+function _exportChunks8(text){
+  text=String(text);var chunks=[];
+  while(text.length){var size=Math.min(30000,text.length);if(size<text.length&&/[\uD800-\uDBFF]/.test(text.charAt(size-1)))size--;chunks.push(text.slice(0,size));text=text.slice(size);}return chunks.length?chunks:[''];
+}
+function _expandExportSheets8(sheets){
+  var longs=sheets.find(function(sheet){return sheet.name==='Long Text';}),parts={};
+  if(longs)longs.rows.slice(2).forEach(function(row){if(!parts[row[0]])parts[row[0]]=[];parts[row[0]][Number(row[1])-1]=row[2]||'';});
+  sheets.forEach(function(sheet){if(sheet===longs)return;sheet.rows.forEach(function(row){row.forEach(function(value,index){var match=String(value).match(/^\[\[LAB_FULL_TEXT_(\d+)\]\]$/);if(match&&parts[match[1]])row[index]=parts[match[1]].join('');});});});
+  var raw=sheets.find(function(sheet){return sheet.name==='Full Data Backup';});
+  if(raw){
+    var rows=raw.rows.slice(2).filter(function(row){return /^\d+$/.test(String(row[0]));}).sort(function(a,b){return Number(a[0])-Number(b[0]);});
+    rows.forEach(function(row,index){if(Number(row[0])!==index+1)throw new Error('The full backup is missing a chunk.');});
+    var backup;try{backup=JSON.parse(rows.map(function(row){return row[1]||'';}).join(''));}catch(error){throw new Error('The complete data backup in this workbook is invalid. Keep Full Data Backup unchanged.');}
+    if(backup.format!=='Lab Practical Engineer Excel Backup'||backup.version!==2||!backup.appState||!Array.isArray(backup.people)||!Array.isArray(backup.amirTraining))throw new Error('Unrecognized workbook backup format.');
+    sheets.backup8=backup;
+  }
+  return sheets;
+}
+function _restoreExportSnapshot8(sheets,state){
+  if(!sheets.backup8)return;
+  var backup=sheets.backup8,restored=JSON.parse(JSON.stringify(backup.appState));
+  // Restore live task definitions too, including new labels and moved training tasks.
+  restored._allItems=restored._allItems||{};
+  backup.people.forEach(function(person){restored._allItems[person.id]=person.items;});
+  restored._amirCustomTasks={};if(!restored.amir)restored.amir={};
+  restored.amir.taskMonths2026=restored.amir.taskMonths2026||{};
+  backup.amirTraining.forEach(function(group){if(!group||!group.month||!Array.isArray(group.items))return;restored._amirCustomTasks[group.month]=group.items;group.items.forEach(function(task){restored.amir.taskMonths2026[task.id]=group.month;});});
+  Object.keys(state).forEach(function(key){delete state[key];});Object.assign(state,restored);
+}
+function _applyExtraExportSheet8(sheet,state){
+  var name=sheet.name.trim().toLowerCase(),count=0;
+  var person=(PEOPLE||[]).find(function(p){return name.indexOf(p.name.toLowerCase()+' ')===0&&/^20\d\d$/.test(name.slice(p.name.length+1));});
+  if(person){
+    var year=name.slice(person.name.length+1),ps=state[person.id]||{};state[person.id]=ps;
+    var fields=['items','notes','pct','itemYears'];fields.forEach(function(field){if(!ps[field])ps[field]={};});
+    var definitions=_exportValues8(state._allItems&&state._allItems[person.id]);if(!definitions.length)definitions=person.items||[];
+    sheet.rows.forEach(function(row){
+      var label=String(row[0]||'');
+      var suffix=year==='2026'?'':'_'+year;
+      if(label==='TEAM DYNAMICS'){ps['teamScore'+suffix]=parseInt(String(row[1]||'').replace('Score:',''))||0;ps['teamComment'+suffix]=String(row[7]||'');return;}
+      if(label==='EMPLOYEE COMMENT'){ps['empComment'+suffix]=String(row[7]||'');return;}
+      if(label==='MANAGER COMMENT'){ps['mgrComment'+suffix]=String(row[7]||'');return;}
+      if(!/^\d+$/.test(label)||!row[1])return;
+      var item=definitions.find(function(item){return row[9]?item.id===row[9]:item.label===row[1];});if(!item)return;
+      ps.pct[item.id]=Math.max(0,Math.min(100,Number(row[2])||0));ps.items[item.id]=row[3]==='V';ps.notes[item.id]=String(row[5]||'');ps.itemYears[item.id]=String(row[10]||year);item.label=String(row[1]);
+      if(row[11]!==undefined)item.tags=String(row[11]).split(',').map(function(tag){return tag.trim();}).filter(Boolean);count++;
+    });return count;
+  }
+  var match=name.match(/^amir (20\d\d)$/);
+  if(match){
+    var year=match[1],old=_exportValues8(state.amir&&state.amir['goals_'+year]);if(!state.amir)state.amir={};
+    var goals=[];sheet.rows.forEach(function(row,index){if(index<2||!/^\d+$/.test(String(row[0]))||!row[1])return;
+      var id=String(row[9]||''),existing=old.find(function(goal){return id?goal.id===id:goal.label===row[1];})||{};
+      goals.push(Object.assign({},existing,{id:id||existing.id||'ag_imp_'+Date.now()+'_'+index,label:String(row[1]),pct:Math.max(0,Math.min(100,Number(row[2])||0)),done:row[3]==='V',note:String(row[5]||''),tags:String(row[11]||'').split(',').map(function(tag){return tag.trim();}).filter(Boolean)}));count++;
+    });state.amir['goals_'+year]=goals;return count;
+  }
+  return null;
+}
+function _preserveExportMetadata8(sheets,state){
+  if(!sheets.backup8)return;
+  var originals=_exportValues8(sheets.backup8.appState.machTraining),used={};
+  _exportValues8(state.machTraining).forEach(function(plan){
+    var index=originals.findIndex(function(old,i){return !used[i]&&((old.id&&old.id===plan.id)||(old.machine===plan.machine&&old.dateFrom===plan.dateFrom&&old.dateTo===plan.dateTo));});
+    if(index<0)return;used[index]=true;var old=originals[index];
+    var visible=String(old.plan||'').split('\n').filter(function(line){return line.trim();}).join('\n');
+    if(plan.plan===visible)plan.plan=old.plan;
+    Object.keys(plan.attendees||{}).forEach(function(name){plan.attendees[name]=Object.assign({},(old.attendees||{})[name]||{},plan.attendees[name]);});
+  });
+}
+
 function exportFullExcel(){
+  var snapshot=_captureSystemExport8();
   if(typeof JSZip==='undefined'){
     var s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    s.onload=function(){_buildXlsx();};
+    s.onload=function(){_buildXlsx(snapshot);};
     s.onerror=function(){alert('Could not load JSZip. Check internet connection.');};
     document.head.appendChild(s);
-  } else {_buildXlsx();}
+  } else {_buildXlsx(snapshot); }
 }
 
-function _buildXlsx(){
+function _buildXlsx(snapshot){
+  var backup=snapshot||_captureSystemExport8();
+  var appState=backup.appState,PEOPLE=backup.people,AMIR_TRAINING=backup.amirTraining;
+  var longTexts8=[];
+
   var GRN='FF76B900',BLK='FF000000',WHT='FFFFFFFF',
       MID='FF1A3300',LGT='FFE8F5C8',GRY='FF1C1C1C',GRY2='FF2A2A2A',
       BLUE_BG='FF0D1E35',BLUE_FG='FF7EC8E3',
@@ -2043,7 +2130,7 @@ function _buildXlsx(){
       AMB_BG='FF2D1F00',AMB_FG='FFF5A623',
       NOTE_BG='FF181818',NOTE_FG='FFD0D0D0',
       TS_FG='FF888888',DRK='FF0A1500';
-  function xesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function xesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,function(pair){return '&#'+pair.codePointAt(0)+';';}).replace(/[\uD800-\uDFFF]/g,'\uFFFD');}
   function xts(){return new Date().toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
   var fonts=[],fills=[],borders=[],xfs=[];
   var fontIdx={},fillIdx={},borderIdx={},xfIdx={};
@@ -2097,9 +2184,14 @@ function _buildXlsx(){
     mgrN:mkS(BLUE_FG,0,1,10,BLUE_BG,1,0,null), amirN:mkS(PURP_FG,0,1,10,PURP_BG,1,0,null),
     blank:mkS(BLK,0,0,10,null,0,0,null)
   };
-  var _ss=[],_ssMap={};
+  var _ss=[],_ssMap=Object.create(null);
   function ss(s){s=String(s==null?'':s);if(_ssMap[s]!==undefined)return _ssMap[s];var id=_ss.length;_ssMap[s]=id;_ss.push(s);return id;}
-  function cS(v,sId){return '<c r="ADDR" s="'+sId+'" t="s"><v>'+ss(v)+'</v></c>';}
+  function cS(v,sId){
+    v=String(v==null?'':v);
+    if(!v)return cB(sId);
+    if(v.length>30000){var id=String(longTexts8.length+1);_exportChunks8(v).forEach(function(part,index){longTexts8.push({'Text ID':id,Part:index+1,Text:part});});v='[[LAB_FULL_TEXT_'+id+']]';}
+    return '<c r="ADDR" s="'+sId+'" t="s"><v>'+ss(v)+'</v></c>';
+  }
   function cN(v,sId){return '<c r="ADDR" s="'+sId+'" t="n"><v>'+Number(v||0)+'</v></c>';}
   function cB(sId){return '<c r="ADDR" s="'+sId+'"/>';}
   function col26(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
@@ -2139,7 +2231,7 @@ function _buildXlsx(){
     x+='</worksheet>';
     return x;
   }
-  var CW_ENG=[18,55,6,6,14,55,16,0,0],NC=CW_ENG.length,NC_ENG=CW_ENG.length;
+  var CW_ENG=[10,55,8,8,18,65,18,55,18],NC=CW_ENG.length,NC_ENG=CW_ENG.length;
   var CW_AMIR=[20,36,14,35,6,6,14,50,16,16],NC_AMIR=CW_AMIR.length;
   var CW=CW_ENG;
   function H(v){return cS(v,ST.hdr);}
@@ -2157,7 +2249,7 @@ function _buildXlsx(){
   }
   function hRow(ls){return{cells:ls.map(function(l){return H(l);}),h:22};}
   function titleRow(lbl,span){var cells=[cS(lbl,ST.title)];for(var _i=1;_i<span;_i++)cells.push(cS('',ST.blank));return{cells:cells,h:20};}
-  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v),ST.norm);}),h:18};}
+  function sRow2(vals){return{cells:vals.map(function(v){return cS(String(v==null?'':v),ST.norm);}),h:estH(vals,vals.map(function(){return 24;}),18)};}
   function mhRow(lbl){
     var r={cells:[cS(lbl,ST.monthH)],h:22,merge:[[0,NC-1]]};
     for(var i=1;i<NC;i++)r.cells.push(cB(ST.monthH));
@@ -2180,14 +2272,16 @@ function _buildXlsx(){
   var sNames=[],sXmls=[];
   (PEOPLE||[]).forEach(function(p){
     var ps=appState[p.id]||{};
-    var rows=[tRow(p.name+' - Goals & Deliverables 2026'),mRow(),gap(),
-      hRow(['#','Task / Goal','%','Done','Last Status','Comment / Note','Last Comment','Manager Comment','Last Mgr'])];
-    if(p.site){
+    _exportYears8(backup).forEach(function(year){
+    var suffix=year==='2026'?'':'_'+year;
+    var rows=[tRow(p.name+' - Goals & Deliverables '+year),mRow(),gap(),
+      hRow(['#','Task / Goal','%','Done','Last Status','Comment / Note','Last Comment','Manager Comment','Last Mgr','Task ID','Year','Tags'])];
+    if(p.site&&year==='2026'){
       var sd=!!ps.site;var sf=sd?ST.done:ST.pend;var sc=sd?ST.doneC:ST.pendC;
       rows.push({cells:[cS('SITE',sc),cS('[SITE] '+p.site,sf),cN(sd?100:0,sc),cS(sd?'V':'-',sc),cB(ST.ts),cS(ps.siteNote||'',ST.note),cB(ST.ts),cB(ST.blank),cB(ST.blank)],h:estH([ps.siteNote||''],[CW_ENG[5]],13)});
     }
     var num=1;
-    (p.items||[]).forEach(function(it){
+    (p.items||[]).filter(function(it){return String((ps.itemYears||{})[it.id]||'2026')===year;}).forEach(function(it){
       var done=!!(ps.items&&ps.items[it.id]);
       var pct=Number((ps.pct&&ps.pct[it.id]!==undefined)?ps.pct[it.id]:0);
       var note=String(ps.notes&&ps.notes[it.id]||'');
@@ -2196,11 +2290,12 @@ function _buildXlsx(){
       var mgr=String(ps.mgrComment||'');
       var sf=done?ST.done:ST.norm;var sc=done?ST.doneC:ST.normC;
       var noteFlat=note;
-      rows.push({cells:[cN(num,sc),cS(it.label,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(stTs,ST.ts),cS(noteFlat,ST.note),cS(noteTs,ST.ts),cB(ST.blank),cB(ST.blank)],h:18});
+      rows.push({cells:[cN(num,sc),cS(it.label,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(stTs,ST.ts),cS(noteFlat,ST.note),cS(noteTs,ST.ts),cB(ST.blank),cB(ST.blank),cS(it.id,ST.ts),cS(year,ST.ts),cS((it.tags||[]).join(', '),ST.note)],h:18});
       num++;
     });
-    rows.push(gap(),sRow('TEAM DYNAMICS','Score:'+(ps.teamScore||'-'),ps.teamComment,ps.teamCommentTs),sRow('EMPLOYEE COMMENT','',ps.empComment,ps.empCommentTs),sRow('MANAGER COMMENT','',ps.mgrComment,ps.mgrCommentTs));
-    sNames.push(p.name.slice(0,31));sXmls.push(shXml(rows,CW_ENG));
+    rows.push(gap(),sRow('TEAM DYNAMICS','Score:'+(ps['teamScore'+suffix]||'-'),ps['teamComment'+suffix],ps['teamCommentTs'+suffix]),sRow('EMPLOYEE COMMENT','',ps['empComment'+suffix],ps['empCommentTs'+suffix]),sRow('MANAGER COMMENT','',ps['mgrComment'+suffix],ps['mgrCommentTs'+suffix]));
+    sNames.push((year==='2026'?p.name:p.name+' '+year).slice(0,31));sXmls.push(shXml(rows,CW_ENG.concat([28,12,24])));
+    });
   });
   (function(){
     var ps=appState.amir||{};CW=CW_AMIR;NC=NC_AMIR;
@@ -2208,14 +2303,14 @@ function _buildXlsx(){
     var td=0,ti=0;
     (AMIR_TRAINING||[]).forEach(function(mg){
       if(!mg||!mg.items)return;
-      rows.push(gap(),mhRow('| '+mg.month),hRow(['Category','Task / Training','Mentor','Objective','%','Done','Status','Comment','Last Comment','Last Mgr']));
+      rows.push(gap(),mhRow('| '+mg.month),hRow(['Category','Task / Training','Mentor','Objective','%','Done','Status','Comment','Last Comment','Last Mgr','Task ID','Month']));
       mg.items.forEach(function(it){
         var done=!!(ps.items&&ps.items[it.id]);
         var pct=Number((ps.pct&&ps.pct[it.id]!==undefined)?ps.pct[it.id]:0);
         var note=String(ps.notes&&ps.notes[it.id]||'');
         var noteTs=String(ps.notesTs&&ps.notesTs[it.id]||'');
         var sf=done?ST.done:ST.norm;var sc=done?ST.doneC:ST.normC;
-        rows.push({cells:[cS(it.cat,sf),cS(it.task,sf),cS(it.mentor,sf),cS(it.obj,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(String(ps.status&&ps.status[it.id]||''),ST.ts),cS(note,ST.note),cS(noteTs,ST.ts),cB(ST.blank)],h:18});
+        rows.push({cells:[cS(it.cat,sf),cS(it.task,sf),cS(it.mentor,sf),cS(it.obj,sf),cN(pct,sc),cS(done?'V':'-',sc),cS(String(ps.status&&ps.status[it.id]||''),ST.ts),cS(note,ST.note),cS(noteTs,ST.ts),cB(ST.blank),cS(it.id,ST.ts),cS(mg.month,ST.ts)],h:18});
         td+=done?1:0;ti++;
       });
       var mgN=String((ps.monthSummary&&ps.monthSummary[mg.month])||'');
@@ -2227,19 +2322,19 @@ function _buildXlsx(){
       rows.push(gap(),nRow('Manager Notes - '+mg.month,mgN,mgNTs,ST.secH),nRow('Amir Notes - '+mg.month,amN,amNTs,ST.amirN),nRow('Mgr Notes on Amir - '+mg.month,mmN,mmNTs,ST.mgrN));
     });
     rows.push(gap(),sRow('TOTAL: '+td+'/'+ti+' ('+Math.round(td/Math.max(ti,1)*100)+'%)','',String(ps.mgrNotes||ps.mgrComment||''),''));
-    sNames.push('Amir');sXmls.push(shXml(rows,CW_AMIR));
+    sNames.push('Amir');sXmls.push(shXml(rows,CW_AMIR.concat([28,16])));
     CW=CW_ENG;NC=NC_ENG;
   })();
 
   // ── Sessions ──────────────────────────────────────────────
   try{(function(){
     var sessions=Array.isArray(appState.sessions)?appState.sessions:Object.values(appState.sessions||{});
-    var CW2=[40,20,14,10,40,30,10];
+    var CW2=[40,20,14,10,40,30,10,65,28];
     var rows=[];
-    rows.push(titleRow('Lab Sessions — '+xts(),7));
-    rows.push(hRow(['Title','Presenter','Date','Duration','Agenda','Attendees','Done']));
+    rows.push(titleRow('Lab Sessions — '+xts(),9));
+    rows.push(hRow(['Title','Presenter','Date','Duration','Agenda','Attendees','Done','Link','Session ID']));
     sessions.forEach(function(s){
-      rows.push(sRow2([s.title||'',s.presenter||'',s.date||'',s.time||'',s.agenda||'',(s.attendees||[]).join(', '),s.done?'Yes':'']));
+      rows.push(sRow2([s.title||'',s.presenter||'',s.date||'',s.time||'',s.agenda||'',_exportValues8(s.attendees).join(', '),(s.done||s.completed)?'Yes':'',s.link||'',s.id||'']));
     });
     sNames.push('Sessions');sXmls.push(shXml(rows,CW2));
   })();}catch(e){console.error('Sessions sheet:',e);}
@@ -2247,12 +2342,12 @@ function _buildXlsx(){
   // ── My Tasks (Yousef) ──────────────────────────────────────
   try{(function(){
     var tasks=Array.isArray(appState.myTasks&&appState.myTasks.items)?appState.myTasks.items:Object.values((appState.myTasks&&appState.myTasks.items)||{});
-    var CW2=[12,40,20,14,40,40];
+    var CW2=[12,40,20,14,40,40,28];
     var rows=[];
     rows.push(titleRow('My Tasks — Yousef — '+xts(),6));
-    rows.push(hRow(['Year','Title','Category','Date','Details','Impact']));
+    rows.push(hRow(['Year','Title','Category','Date','Details','Impact','Task ID']));
     tasks.forEach(function(t){
-      rows.push(sRow2([t.year||'2026',t.title||'',t.category||'',t.date||'',t.details||'',t.impact||'']));
+      rows.push(sRow2([t.year||'2026',t.title||'',t.category||t.cat||'',t.date||'',t.details||'',t.impact||'',t.id||'']));
     });
     sNames.push('My Tasks');sXmls.push(shXml(rows,CW2));
   })();}catch(e){console.error('MyTasks sheet:',e);}
@@ -2266,7 +2361,7 @@ function _buildXlsx(){
     rows.push(titleRow('Team Vacations — '+xts(),8));
     rows.push(hRow(['Date','Yousef','Haytam','Garold','Michael','Samer','Amir','Type']));
     Object.keys(vacs).sort().forEach(function(dt){
-      var day=vacs[dt];
+      var rawDay=vacs[dt];var day=Array.isArray(rawDay)?{vac:rawDay,trip:[]}:{vac:_exportValues8(rawDay.vac),trip:_exportValues8(rawDay.trip)};
       if(!(day.vac||[]).length&&!(day.trip||[]).length)return;
       var cells=[dt];
       pids.forEach(function(pid){
@@ -2285,7 +2380,7 @@ function _buildXlsx(){
 
   // ── Machines ──────────────────────────────────────────────
   try{(function(){
-    var machines=Array.isArray(appState.machines)?appState.machines:Object.values(appState.machines||{});
+    var machines=_exportValues8(appState.machines||backup.defaultMachines);
     var sc=appState.machineScores||{};
     var gl=appState.machineGoals||{};
     var pids=['haytam','garold','michael','samer','amir'];
@@ -2329,13 +2424,13 @@ function _buildXlsx(){
       rows.push({cells:[
         cS(mt.machine||'',ST.secH),cS(mt.site||'',ST.secH),
         cS(mt.dateFrom||'',ST.secH),cS(mt.dateTo||'',ST.secH),
-        cS('Attendees: '+(mt.attendees_list||[]).join(', '),ST.secH),
+        cS('Attendees: '+_exportValues8(mt.attendees_list).join(', '),ST.secH),
         cS('',ST.secH),cS('',ST.secH)
       ],h:18});
       // Column headers
       rows.push(hRow(['Machine','Site','From','To','Attendee','Status','Feedback']));
       // Attendee rows
-      var atts=mt.attendees_list||[];
+      var atts=_exportValues8(mt.attendees_list);
       if(atts.length===0){
         rows.push(sRow2([mt.machine||'',mt.site||'','','','—','','']));
       } else {
@@ -2349,7 +2444,7 @@ function _buildXlsx(){
       var planLines=(mt.plan||'').split('\n');
       planLines.forEach(function(line){
         if(line.trim()){
-          rows.push({cells:[cS('',ST.blank),cS(line.trim(),ST.note),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank)],h:15});
+          rows.push({cells:[cS('',ST.blank),cS(line,ST.note),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank),cS('',ST.blank)],h:15});
         }
       });
       // Spacer
@@ -2357,6 +2452,63 @@ function _buildXlsx(){
     });
     sNames.push('Machine Training');sXmls.push(shXml(rows,CW2));
   })();}catch(e){console.error('MachTraining sheet:',e);}
+
+  // Readable coverage of every stored section, with a complete lossless snapshot.
+  function extraSheet8(name,records,columns){
+    if(!columns){var keys=new Set();records.forEach(function(record){Object.keys(record).forEach(function(key){keys.add(key);});});columns=Array.from(keys);}
+    if(!columns.length)columns=['No records'];
+    var widths=columns.map(function(key){return /plan|note|comment|impact|value|content|details|desc|feedback/i.test(key)?65:/id|date|year|person|part/i.test(key)?22:32;});
+    var rows=[titleRow(name,columns.length),hRow(columns)];
+    records.forEach(function(record){var values=columns.map(function(key){var value=record[key];return value&&typeof value==='object'?JSON.stringify(value):value===undefined?'':value;});
+      rows.push({cells:values.map(function(value){return typeof value==='number'?cN(value,ST.norm):cS(value,ST.norm);}),h:estH(values,widths,18)});
+    });sNames.push(name);sXmls.push(shXml(rows,widths));
+  }
+  var years8=_exportYears8(backup);
+  years8.filter(function(year){return year!=='2026';}).forEach(function(year){
+    var goals=_exportValues8((appState.amir||{})['goals_'+year]);
+    var rows=[titleRow('Amir — Goals & Deliverables '+year,12),hRow(['#','Task / Goal','%','Done','Last Status','Comment / Note','Last Comment','Manager Comment','Last Mgr','Task ID','Year','Tags'])];
+    goals.forEach(function(goal,index){rows.push(sRow2([index+1,goal.label||'',goal.pct===undefined?(goal.done?100:0):goal.pct,goal.done?'V':'-',goal.statusTs||'',goal.note||'','','','',goal.id,year,(goal.tags||[]).join(', ')]));});
+    sNames.push('Amir '+year);sXmls.push(shXml(rows,[8,55,8,8,18,65,18,24,18,28,12,24]));
+  });
+  var reviewRows=[];
+  function reviews8(owner,obj){Object.keys(obj||{}).filter(function(key){return /focal/i.test(key)&&obj[key]&&typeof obj[key]==='object';}).forEach(function(key){Object.keys(obj[key]).forEach(function(field){reviewRows.push({Person:owner,Year:(key.match(/20\d\d/)||[key==='focal'?'2025':''])[0],Review:key,Field:field,Content:obj[key][field]});});});}
+  (backup.people||[]).forEach(function(person){reviews8(person.name,appState[person.id]);});reviews8('Amir',appState.amir);reviews8('Yousef',appState.myTasks);
+  Object.keys(backup.focal||{}).forEach(function(pid){Object.keys(backup.focal[pid]||{}).forEach(function(field){reviewRows.push({Person:pid,Year:'2025',Review:'Baseline focal',Field:field,Content:backup.focal[pid][field]});});});
+  extraSheet8('Reviews',reviewRows,['Person','Year','Review','Field','Content']);
+  var yearComments=[];
+  (backup.people||[]).concat([{id:'amir',name:'Amir'}]).forEach(function(person){years8.forEach(function(year){var state=appState[person.id]||{},suffix=year==='2026'?'':'_'+year;yearComments.push({Person:person.name,Year:year,Score:state['teamScore'+suffix]||0,'Team comment':state['teamComment'+suffix]||'','Employee comment':state['empComment'+suffix]||'','Manager comment':state['mgrComment'+suffix]||''});});});
+  extraSheet8('Year Comments',yearComments);
+  var xsRows=[];Object.keys(appState.xsections||{}).forEach(function(group){Object.entries(appState.xsections[group]||{}).forEach(function(entry){var row=entry[1];if(row&&typeof row==='object')xsRows.push(Object.assign({Group:group,'Record key':entry[0]},row));});});extraSheet8('X-Sections',xsRows);
+  extraSheet8('Training Plans',_exportValues8(appState.machTraining));
+  var goalsRows=[],machines8=_exportValues8(appState.machines||backup.defaultMachines);
+  machines8.forEach(function(machine){['haytam','garold','michael','samer','amir'].forEach(function(pid){var key=machine.id+'__'+pid;goalsRows.push({Machine:machine.name,'Machine ID':machine.id,Engineer:pid,Level:(appState.machineScores||{})[key]||0,Goal:(appState.machineGoals||{})[key]||0,Deadline:(appState.machineGoals||{})[key+'__date']||'',Comment:(appState.machineComments||{})[key]||''});});});extraSheet8('Machine Details',goalsRows);
+  extraSheet8('My Tasks Details',_exportValues8(appState.myTasks&&appState.myTasks.items));
+  extraSheet8('Session Details',_exportValues8(appState.sessions));
+  extraSheet8('Pending Changes',_exportValues8(appState.pending));
+  var definitions8=[];(backup.people||[]).forEach(function(person){(person.items||[]).forEach(function(task){definitions8.push(Object.assign({Person:person.name,Year:((appState[person.id]||{}).itemYears||{})[task.id]||'2026'},task));});});
+  (backup.amirTraining||[]).forEach(function(group){if(Array.isArray(group.items))group.items.forEach(function(task){definitions8.push(Object.assign({Person:'Amir',Year:'2026',Month:group.month},task));});else if(group.id)definitions8.push(Object.assign({Person:'Amir',Year:'2026',Month:'Unassigned month'},group));});extraSheet8('Task Definitions',definitions8);
+  var fields8=[];
+  function flatten8(value,path){
+    if(value!==null&&typeof value==='object'&&Object.keys(value).length){Object.keys(value).forEach(function(key){flatten8(value[key],path+'/'+String(key).replace(/~/g,'~0').replace(/\//g,'~1'));});return;}
+    fields8.push({Path:path,Type:value===null?'null':Array.isArray(value)?'array':typeof value,Value:typeof value==='string'?value:JSON.stringify(value)});
+  }
+  flatten8(backup.appState,'/appState');extraSheet8('All Saved Fields',fields8,['Path','Type','Value']);
+  var rawRows8=_exportChunks8(JSON.stringify(backup)).map(function(chunk,index){return {Part:index+1,'Backup JSON':chunk};});extraSheet8('Full Data Backup',rawRows8,['Part','Backup JSON']);
+  var guide8=[
+    {Section:'Created',Details:backup.exportedAt+' — '+backup.revision},
+    {Section:'All years',Details:'Each engineer has separate sheets for each saved year. The unnumbered name sheet is 2026. Amir is 2026 training; Amir 2027 and other years contain annual goals.'},
+    {Section:'Sessions',Details:'The Link column contains the original session URL. Session Details retains every saved field.'},
+    {Section:'Complete backup',Details:'Full Data Backup contains a complete JSON snapshot of appState and runtime task/review definitions, split across numbered cells. Keep these cells unchanged.'},
+    {Section:'Readable records',Details:'Reviews, Year Comments, X-Sections, Machine Details, Training Plans, My Tasks Details, Session Details, Task Definitions and Pending Changes expose additional data.'},
+    {Section:'Other saved fields',Details:'All Saved Fields lists every stored appState value and its path, including timestamps, deleted IDs, metadata, and future fields.'},
+    {Section:'Long text',Details:'If a value exceeds an Excel cell limit, its cell refers to numbered parts in Long Text. The complete content also remains in Full Data Backup.'},
+    {Section:'Import',Details:'Importing this workbook restores its complete app-data snapshot, then applies edits from the regular engineer/year task, Amir training, Sessions, My Tasks, Vacations, Machines, Open ARs and Machine Training sheets. Other detail sheets are for review and backup, not editing. Task IDs must be kept.'},
+    {Section:'Website',Details:'Export is read-only. It does not save to Firebase, change progress, change year/month selection, or replace browser backups.'},
+    {Section:'Account credentials',Details:'Passwords, GitHub/Outlook tokens, and Microsoft connection settings stored separately from appState are not included.'}
+  ];extraSheet8('Export Guide',guide8,['Section','Details']);
+  // Move the guide to the front before workbook relationship IDs are generated.
+  sNames.unshift(sNames.pop());sXmls.unshift(sXmls.pop());
+  if(longTexts8.length)extraSheet8('Long Text',longTexts8,['Text ID','Part','Text']);
 
   var zip=new JSZip();
   var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>';
@@ -2372,16 +2524,29 @@ function _buildXlsx(){
   sNames.forEach(function(n,i){wb2+='<sheet name="'+xesc(n)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>';});
   wb2+='</sheets></workbook>';
   zip.file('xl/workbook.xml',wb2);
-  var sxml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="'+fonts.length+'">'+fonts.join('')+'</fonts><fills count="'+fills.length+'">'+fills.join('')+'</fills><borders count="'+borders.length+'">'+borders.join('')+'</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs></styleSheet>';
+  var sxml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="'+fonts.length+'">'+fonts.join('')+'</fonts><fills count="'+fills.length+'">'+fills.join('')+'</fills><borders count="'+borders.length+'">'+borders.join('')+'</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   zip.file('xl/styles.xml',sxml);
   var ssxml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+_ss.length+'" uniqueCount="'+_ss.length+'">';
   _ss.forEach(function(s){ssxml+='<si><t xml:space="preserve">'+xesc(s)+'</t></si>';});
   ssxml+='</sst>';
   zip.file('xl/sharedStrings.xml',ssxml);
-  sXmls.forEach(function(xml,i){zip.file('xl/worksheets/sheet'+(i+1)+'.xml',xml);});
-  zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}).then(function(blob){
+  sXmls.forEach(function(xml,i){
+    var links=[];
+    xml.replace(/<c\b([^>]*?)t="s"[^>]*><v>(\d+)<\/v><\/c>/g,function(cell,attributes,index){
+      var value=_ss[Number(index)],ref=(attributes.match(/r="([A-Z]+\d+)"/)||[])[1];
+      if(ref&&/^https?:\/\/[^\s<>"']+$/i.test(value||'')&&value.length<8192)links.push({ref:ref,url:value});return cell;
+    });
+    if(links.length){
+      var refs='<hyperlinks>',rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+      links.forEach(function(link,index){refs+='<hyperlink ref="'+link.ref+'" r:id="rId'+(index+1)+'"/>';rels+='<Relationship Id="rId'+(index+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="'+xesc(link.url)+'" TargetMode="External"/>';});
+      xml=xml.replace('</worksheet>',refs+'</hyperlinks></worksheet>');
+      zip.file('xl/worksheets/_rels/sheet'+(i+1)+'.xml.rels',rels+'</Relationships>');
+    }
+    zip.file('xl/worksheets/sheet'+(i+1)+'.xml',xml);
+  });
+  return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}).then(function(blob){
     var a=document.createElement('a');var d=new Date();
-    a.download='Lab_Engineers_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.xlsx';
+    a.download='Lab_Engineers_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'_8.xlsx';
     a.href=URL.createObjectURL(blob);document.body.appendChild(a);a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
   });
@@ -2421,18 +2586,20 @@ async function _readExcelSheets(buffer){
   return Promise.all(_excelElements(_excelXml(texts[0]),'sheet').map(async function(sh){
     var rid=sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id')||sh.getAttribute('r:id');
     var rows=_excelRows(await read(paths[rid]),strings);return {name:sh.getAttribute('name'),rows:rows};
-  }));
+  })).then(_expandExportSheets8);
 }
 function _applyExcelSheets(sheets,state){
+  _restoreExportSnapshot8(sheets,state);
   var imported=0,personMap={};
   (PEOPLE||[]).forEach(function(p){personMap[p.name.toLowerCase()]=p;});
   function carry(old,rows,key){
     var used={};old=Array.isArray(old)?old:Object.values(old||{});
-    return rows.map(function(row){var i=old.findIndex(function(x,idx){return !used[idx]&&x[key]===row[key];});
+    return rows.map(function(row){var i=old.findIndex(function(x,idx){return !used[idx]&&((row.id&&x.id===row.id)||x[key]===row[key]);});
       if(i<0)return row;used[i]=true;return Object.assign({},old[i],row,{id:old[i].id||row.id});});
   }
               sheets.forEach(function(sh){
                 if(!sh)return;
+                var additional=_applyExtraExportSheet8(sh,state);if(additional!==null){imported+=additional;return;}
                 var name=sh.name.trim().toLowerCase();
                 var rowData=sh.rows;
                 if(name==='amir'){
@@ -2445,14 +2612,15 @@ function _applyExcelSheets(sheets,state){
                     var c0=String(row[0]).trim();
                     if(c0.startsWith('| ')){curMonth=c0.replace('| ','').trim();return;}
                     if(c0==='Category'||c0.startsWith('Exported')||c0.startsWith('Amir -')||c0.startsWith('TOTAL'))return;
-                    if(c0.startsWith('Manager Notes')&&curMonth&&!c0.includes('Mgr Notes on')){if(!ps.monthSummary)ps.monthSummary={};ps.monthSummary[curMonth]=String(row[1]||'').trim();return;}
-                    if(c0.startsWith('Amir Notes')&&curMonth){if(!ps.amirMonthNote)ps.amirMonthNote={};ps.amirMonthNote[curMonth]=String(row[1]||'').trim();return;}
-                    if(c0.startsWith('Mgr Notes on Amir')&&curMonth){if(!ps.mgrMonthNotes)ps.mgrMonthNotes={};ps.mgrMonthNotes[curMonth]=String(row[1]||'').trim();return;}
+                    if(c0.startsWith('Manager Notes')&&curMonth&&!c0.includes('Mgr Notes on')){if(!ps.monthSummary)ps.monthSummary={};ps.monthSummary[curMonth]=String(row[1]||'');return;}
+                    if(c0.startsWith('Amir Notes')&&curMonth){if(!ps.amirMonthNote)ps.amirMonthNote={};ps.amirMonthNote[curMonth]=String(row[1]||'');return;}
+                    if(c0.startsWith('Mgr Notes on Amir')&&curMonth){if(!ps.mgrMonthNotes)ps.mgrMonthNotes={};ps.mgrMonthNotes[curMonth]=String(row[1]||'');return;}
                     // Amir export cols: A=Category, B=Task/Training, C=Mentor, D=Objective, E=%, F=Done, G=Status, H=Note
-                    var taskTxt=String(row[1]||'').trim().toLowerCase();
-                    var id=taskIdx[taskTxt];if(!id)return;
+                    var taskTxt=String(row[1]||'').toLowerCase();
+                    var id=String(row[10]||taskIdx[taskTxt]||'');if(!id)return;
+                    if(row[10])Object.values(state._amirCustomTasks||{}).forEach(function(items){_exportValues8(items).forEach(function(task){if(task.id===id){task.cat=String(row[0]||'');task.task=String(row[1]||'');task.mentor=String(row[2]||'');task.obj=String(row[3]||'');}});});
                     var amirPct=Math.min(100,Math.max(0,parseFloat(row[4])||0));
-                    var amirDone=String(row[5]||'').trim()==='V';
+                    var amirDone=String(row[5]||'')==='V';
                     if(!ps.pct)ps.pct={};ps.pct[id]=amirPct;
                     if(!ps.items)ps.items={};ps.items[id]=amirDone;
                     if(!ps.status)ps.status={};ps.status[id]=String(row[6]||'').trim();
@@ -2486,12 +2654,15 @@ function _applyExcelSheets(sheets,state){
                     if(col1==='V'||col1==='-'||col1.length<3)return;
                     if(/^\d{4}-\d{2}/.test(col1))return; // skip date strings
                     var label=col1.toLowerCase();
-                    var id=itemIdx[label];if(!id)return;
+                    var id=String(row[9]||itemIdx[label]||'');if(!id)return;
+                    if(row[10]&&/^20\d\d$/.test(String(row[10]))){if(!ps.itemYears)ps.itemYears={};ps.itemYears[id]=String(row[10]);}
+                    var savedDefinition=_exportValues8(state._allItems&&state._allItems[p.id]).find(function(item){return item.id===id;});
+                    if(savedDefinition){savedDefinition.label=String(row[1]);if(row[11]!==undefined)savedDefinition.tags=String(row[11]).split(',').map(function(tag){return tag.trim();}).filter(Boolean);}
                     var newPct=Math.min(100,Math.max(0,parseFloat(row[2])||0));
                     var newDone=String(row[3]||'').trim()==='V';
                     if(!ps.pct)ps.pct={};ps.pct[id]=newPct;
                     if(!ps.items)ps.items={};ps.items[id]=newDone;
-                    if(!ps.notes)ps.notes={};ps.notes[id]=String(row[5]||'').trim();
+                    if(!ps.notes)ps.notes={};ps.notes[id]=String(row[5]||'');
                     imported++;
                   });
                 }
@@ -2502,7 +2673,8 @@ function _applyExcelSheets(sheets,state){
                   rowData.forEach(function(row,ri){
                     if(ri<2)return;
                     if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0||!row[0].trim())return;
-                    newSessions.push({id:'sess_imp_'+Date.now()+'_'+ri,title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:(row[6]||'').trim()==='Yes'});
+                    newSessions.push({id:String(row[8]||'sess_imp_'+Date.now()+'_'+ri),title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:(row[6]||'').trim()==='Yes'});
+                    if(row[7]!==undefined)newSessions[newSessions.length-1].link=String(row[7]||'');
                     imported++;
                   });
                   if(newSessions.length>0)state.sessions=carry(state.sessions,newSessions,'title');
@@ -2512,9 +2684,9 @@ function _applyExcelSheets(sheets,state){
                   var newTasks=[];
                   rowData.forEach(function(row,ri){
                     if(ri<2)return;
-                    var title=String(row[1]||'').trim();
+                    var title=String(row[1]||'');
                     if(!title||title==='Title')return;
-                    newTasks.push({id:'task_imp_'+Date.now()+'_'+ri,year:String(row[0]||'2026').trim(),title:title,category:String(row[2]||'').trim(),date:String(row[3]||'').trim(),details:String(row[4]||'').trim(),impact:String(row[5]||'').trim()});
+                    newTasks.push({id:String(row[6]||'task_imp_'+Date.now()+'_'+ri),year:String(row[0]||'2026').trim(),title:title,category:String(row[2]||'').trim(),cat:String(row[2]||'').trim(),date:String(row[3]||'').trim(),details:String(row[4]||'').trim(),impact:String(row[5]||'')});
                     imported++;
                   });
                   if(newTasks.length>0){if(!state.myTasks)state.myTasks={};state.myTasks.items=carry(state.myTasks.items,newTasks,'title');}
@@ -2526,7 +2698,7 @@ function _applyExcelSheets(sheets,state){
                     if(ri<2)return;
                     var title=String(row[0]||'').trim();
                     if(!title||title==='Title')return;
-                    newARs.push({id:'ar_imp_'+Date.now()+'_'+ri,title:title,status:String(row[1]||'').trim(),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'').trim()});
+                    newARs.push({id:'ar_imp_'+Date.now()+'_'+ri,title:title,status:String(row[1]||''),priority:String(row[2]||'').trim(),owner:String(row[3]||'').trim(),engineer:String(row[4]||'').trim(),note:String(row[5]||'')});
                     imported++;
                   });
                   if(newARs.length>0)state.openARs=carry(state.openARs,newARs,'title');
@@ -2539,7 +2711,7 @@ function _applyExcelSheets(sheets,state){
                     if(ri<2)return;
                     var dt=String(row[0]||'').trim();
                     if(!dt||dt==='Date'||!/^\d{4}/.test(dt))return;
-                    state.vacations[dt]={vac:[],trip:[]};
+                    state.vacations[dt]=Object.assign({},state.vacations[dt]||{},{vac:[],trip:[]});
                     pidsVac.forEach(function(pid,pi){
                       var val=String(row[pi+1]||'').trim();
                       if(val==='Vacation'&&state.vacations[dt].vac.indexOf(pid)<0)state.vacations[dt].vac.push(pid);
@@ -2595,6 +2767,7 @@ function _applyExcelSheets(sheets,state){
                 }
               });
 
+  _preserveExportMetadata8(sheets,state);
   return imported;
 }
 async function _commitExcelState(next){
@@ -2625,7 +2798,7 @@ async function importFromFullExcel(input){
     });
     var sheets=await _readExcelSheets(await file.arrayBuffer());
     var next=JSON.parse(JSON.stringify(appState)), count=_applyExcelSheets(sheets,next);
-    if(!count)throw new Error('No matching data rows found. Use an Excel file exported from this app.');
+    if(!count&&!sheets.backup8)throw new Error('No matching data rows found. Use an Excel file exported from this app.');
     var status=await _commitExcelState(next);
     alert('Imported '+count+' records. '+status);
   }catch(error){console.error('Excel import failed:',error);alert('Import failed: '+error.message);}
