@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 15.11.26g</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 17.11.26b</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='15.11.26g';
+var BUILD_TS='17.11.26b';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -5685,7 +5685,7 @@ var _olSession={token:'',expires:0,pending:[],warnings:[],busy:false};
 function _olConfig(){try{return JSON.parse(localStorage.getItem('lab_outlook_config2')||'{}');}catch(e){return {};}}
 function _olEscape(value){return String(value==null?'':value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function _olCanImport(){return currentUser&&currentUser.role==='manager';}
-function syncVacationsFromOutlook(){
+function _olDirectSync2(){
   if(!_olCanImport()){alert('Sign in as manager to import team absences.');return;}
   if(document.getElementById('outlook-dialog2'))return;
   var cfg=_olConfig(),year=new Date().getFullYear();
@@ -5887,6 +5887,143 @@ async function _olApply(){
     _olSession.pending=[];document.getElementById('ol-preview2').replaceChildren();
   }catch(error){_olStatus('Could not save absences: '+error.message);}
   finally{_olBusy(false);var apply=document.getElementById('ol-apply2');if(apply)apply.disabled=false;}
+}
+
+
+// Power Automate publishes a minimal snapshot outside appState.
+// The tracker reads it on demand. Only selected vacation-day additions are saved.
+var OUTLOOK_FEED_PATH11='outlookSync/feed1';
+var _olFeedState11={busy:false,payload:null,rows:[]};
+function _olFeedStatus11(message){var el=document.getElementById('ol-feed-status11');if(el)el.textContent=message;}
+function _olFeedBusy11(value){_olFeedState11.busy=value;document.querySelectorAll('#ol-feed-dialog11 button,#ol-feed-file11').forEach(function(el){el.disabled=value;});}
+function _olFeedIso11(value){return String(value||'').replace(/(\.\d{3})\d+(Z|[+-]\d{2}:\d{2})$/,'$1$2');}
+function _olFeedDate11(value){var s=String(value||'');return /^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(new Date(s+'T12:00:00Z'))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;}
+function _olFeedTime11(value){var s=_olFeedIso11(value);if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(s)||!_olFeedDate11(s.slice(0,10))||!Number.isFinite(Date.parse(s)))throw Error('The Outlook result contains an invalid date or time.');return s;}
+function _olFeedLocalDay11(value){var fields={};new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jerusalem',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value)).forEach(function(p){fields[p.type]=p.value;});return fields.year+'-'+fields.month+'-'+fields.day;}
+function _olFeedList11(value){if(Array.isArray(value))return value.filter(function(v){return v!=null;});if(value&&typeof value==='object'&&Object.keys(value).every(function(k){return /^\d+$/.test(k);}))return Object.values(value).filter(function(v){return v!=null;});throw Error('The Outlook result has no valid event list. Use Website sync payload, not Run summary.');}
+function _olFeedDayPeople11(entry,type){if(Array.isArray(entry))return type==='vac'?entry.slice():[];var val=entry&&entry[type];return Array.isArray(val)?val.slice():Object.values(val||{});}
+function _olFeedValidate11(input,now){
+  var data=input;
+  for(var attempt=0;attempt<2&&typeof data==='string';attempt++)data=JSON.parse(data);
+  if(!data||data.format!=='Lab Practical Engineer Outlook Sync'||data.version!==2)throw Error('Choose the Website sync payload output from the Outlook flow.');
+  if(data.complete!==true||!data.coverage||data.coverage.fullYearComplete!==true||data.coverage.completeForRequestedWindows!==true)throw Error('This is a diagnostic or incomplete Outlook result. Finish a full-year run before syncing.');
+  if(data.coverage.mode!=='full 2026 by month')throw Error('The Outlook result does not identify a completed full-year read.');
+  var errors=data.coverage.readErrors;if(errors&&_olFeedList11(errors).length)throw Error('The Outlook flow reported read errors. No days were imported.');
+  var generated=_olFeedTime11(data.generatedAt),start=_olFeedTime11(data.startUtc),end=_olFeedTime11(data.endUtc),clock=now==null?Date.now():now;
+  if(Date.parse(generated)>clock+10*60000)throw Error('The Outlook update is dated in the future. Check the flow and device clocks.');
+  if(Date.parse(end)<=Date.parse(start)||Date.parse(end)-Date.parse(start)>1100*86400000)throw Error('The Outlook result has an invalid date range.');
+  var from=_olFeedLocalDay11(start),through=_olDayAdd(_olFeedLocalDay11(end),-1),expected=data.coverage.uniqueTeamAbsenceEvents;
+  var source=data.events==null&&expected===0?[]:_olFeedList11(data.events);
+  if(source.length>20000)throw Error('The Outlook result is too large. Use a smaller date range.');
+  if(!Number.isInteger(expected)||expected<0||expected!==source.length)throw Error('The event count does not match the Outlook run summary. No days were imported.');
+  var seen=new Map(),rows=[],ignored=0;
+  source.forEach(function(e){
+    if(!e||typeof e.key!=='string'||!e.key||e.key.length>2048||!Object.prototype.hasOwnProperty.call(TEAM_EMAILS,e.pid)||['vac','trip'].indexOf(e.type)<0||typeof e.isAllDay!=='boolean'||typeof e.requiresReview!=='boolean')throw Error('The Outlook result contains an invalid event assignment.');
+    var s=_olFeedTime11(e.start),t=_olFeedTime11(e.end);if(Date.parse(t)<=Date.parse(s))throw Error('An Outlook event ends before it starts.');
+    if(e.timeZone!=='UTC'&&e.timeZone!=='Israel Standard Time'&&e.timeZone!=='Asia/Jerusalem')throw Error('An Outlook event has an unsupported time zone.');
+    var fingerprint=JSON.stringify([e.pid,e.type,s,t,e.isAllDay,e.requiresReview]);
+    if(seen.has(e.key)){if(seen.get(e.key)!==fingerprint)throw Error('One Outlook event has conflicting person or date assignments.');return;}seen.set(e.key,fingerprint);
+    var days=_olDays({start:{dateTime:s,timeZone:e.timeZone},end:{dateTime:t,timeZone:e.timeZone},isAllDay:e.isAllDay},from,through);
+    if(!days.length){ignored++;return;}
+    rows.push({key:e.key,pid:e.pid,type:e.type,days:days,start:s,end:t,review:e.requiresReview||!e.isAllDay,reasons:e.requiresReview?['The flow marked this event for review.']:!e.isAllDay?['Part-day absence: the tracker records whole days.']:[]});
+  });
+  var proposed=new Map();rows.forEach(function(r){r.days.forEach(function(day){var key=r.pid+'|'+day;if(!proposed.has(key))proposed.set(key,new Set());proposed.get(key).add(r.type);});});
+  rows.forEach(function(r){
+    var opposite=r.type==='vac'?'trip':'vac';
+    if(r.days.some(function(day){return _olFeedDayPeople11((appState.vacations||{})[day],opposite).indexOf(r.pid)>=0||proposed.get(r.pid+'|'+day).size>1;})){r.review=true;r.reasons.push('Vacation and business-trip entries overlap; confirm the right category.');}
+  });
+  var stale=clock-Date.parse(generated)>48*3600000;
+  if(stale)rows.forEach(function(r){r.review=true;r.reasons.push('This flow update is more than two days old.');});
+  return {generatedAt:generated,from:from,through:through,rows:rows,stale:stale,ignored:ignored,coverage:data.coverage};
+}
+function _olFeedMerge11(vacations,selected){
+  var next=JSON.parse(JSON.stringify(vacations||{})),added=0;
+  selected.forEach(function(row){
+    if(!Object.prototype.hasOwnProperty.call(TEAM_EMAILS,row.pid)||['vac','trip'].indexOf(row.type)<0||!Array.isArray(row.days))throw Error('Invalid absence assignment.');
+    row.days.forEach(function(day){
+      if(!_olFeedDate11(day))throw Error('Invalid absence date.');
+      var original=next[day],entry=Array.isArray(original)?{vac:original.slice(),trip:[]}:Object.assign({},original||{});
+      ['vac','trip'].forEach(function(kind){entry[kind]=_olFeedDayPeople11(original,kind);});
+      if(entry[row.type].indexOf(row.pid)<0){entry[row.type].push(row.pid);added++;}next[day]=entry;
+    });
+  });return {vacations:next,added:added};
+}
+async function _olFeedSave11(selected){
+  if(!_olCanImport())throw Error('Sign in as manager to sync team absences.');
+  if(!selected.length)return {added:0,status:'No recognized absence days to add.'};
+  // Validate and compute locally before making any cloud request.
+  _olFeedMerge11(appState.vacations,selected);
+  try{localStorage.setItem(SK+'_before_outlook11',JSON.stringify(appState));}catch(e){throw Error('A recovery backup could not be saved. Free browser storage, then retry.');}
+  var merged,status,waiting;
+  if(FIREBASE_READY&&firebaseDB){
+    try{
+      waiting=setTimeout(function(){_olFeedStatus11('Still waiting for the shared calendar to confirm the save. Keep this window open.');},15000);
+      var transaction=await firebaseDB.ref('appState/vacations').transaction(function(current){merged=_olFeedMerge11(current,selected);return merged.vacations;},undefined,false);
+      if(!transaction.committed)throw Error('The shared calendar update was not committed.');
+      merged.vacations=transaction.snapshot.val()||{};status='Saved to the shared calendar.';
+    }finally{clearTimeout(waiting);}
+  }else{merged=_olFeedMerge11(appState.vacations,selected);status='Saved in this browser only; the shared database is not connected.';}
+  // Update only touched days locally as well, preserving unsent local records.
+  var local=JSON.parse(JSON.stringify(appState.vacations||{})),touched=new Set();selected.forEach(function(r){r.days.forEach(function(d){touched.add(d);});});
+  touched.forEach(function(day){var remote=merged.vacations[day],previous=local[day],entry=Object.assign({},Array.isArray(previous)?{}:previous||{},remote||{});['vac','trip'].forEach(function(type){entry[type]=Array.from(new Set(_olFeedDayPeople11(previous,type).concat(_olFeedDayPeople11(remote,type))));});local[day]=entry;});
+  appState.vacations=local;
+  var saved=JSON.stringify(appState),persisted=false;
+  try{localStorage.setItem(SK,saved);persisted=true;}catch(e){}
+  try{localStorage.setItem(SK+'_bk',saved);}catch(e){}
+  try{sessionStorage.setItem(SK+'_session',saved);persisted=true;}catch(e){}
+  var embedded=document.getElementById('app-data');if(embedded)embedded.textContent=saved;
+  refreshAllCals();if(!persisted)status+=' Browser storage could not be updated; export a backup before leaving.';
+  return {added:merged.added,status:status};
+}
+function _olFeedPreview11(){
+  var wrap=document.getElementById('ol-feed-preview11');if(!wrap)return;var rows=_olFeedState11.rows;
+  wrap.replaceChildren();if(!rows.length)return;
+  var h='<h3>Events requiring review</h3><p>Check an event only after confirming the person, category and whole-day dates.</p><div style="overflow:auto"><table style="width:100%;text-align:left;border-collapse:collapse"><thead><tr><th>Add</th><th>Person</th><th>Category</th><th>Dates</th><th>Review reason</th></tr></thead><tbody>';
+  rows.forEach(function(r,i){h+='<tr><td><input class="ol-feed-use11" type="checkbox" data-index="'+i+'"></td><td>'+_olEscape(r.pid)+'</td><td>'+_olEscape(r.type==='trip'?'Business trip':'Vacation / OOO')+'</td><td style="white-space:nowrap">'+_olEscape(r.days[0])+' → '+_olEscape(r.days[r.days.length-1])+'</td><td>'+_olEscape(r.reasons.join(' '))+'</td></tr>';});
+  wrap.innerHTML=h+'</tbody></table></div><button id="ol-feed-apply11" type="button">Add checked events</button>';
+  document.getElementById('ol-feed-apply11').onclick=async function(){
+    if(_olFeedState11.busy||!_olCanImport())return;
+    var indexes=Array.from(wrap.querySelectorAll('.ol-feed-use11:checked')).map(function(el){return Number(el.dataset.index);}),selected=indexes.map(function(i){return _olFeedState11.rows[i];});
+    if(!selected.length){_olFeedStatus11('Check at least one event to add.');return;}
+    _olFeedBusy11(true);try{var result=await _olFeedSave11(selected);_olFeedState11.rows=_olFeedState11.rows.filter(function(r,i){return indexes.indexOf(i)<0;});_olFeedPreview11();_olFeedStatus11('Added '+result.added+' new absence day(s). '+result.status);}catch(error){_olFeedStatus11('Could not save the selected events: '+error.message);}finally{_olFeedBusy11(false);}
+  };
+}
+async function _olFeedConsume11(data){
+  if(!_olCanImport())throw Error('Sign in as manager to sync team absences.');
+  var parsed=_olFeedValidate11(data),automatic=parsed.rows.filter(function(r){return !r.review;}),review=parsed.rows.filter(function(r){return r.review;});
+  _olFeedState11.payload=parsed;_olFeedState11.rows=review;
+  var meta=document.getElementById('ol-feed-meta11');if(meta)meta.textContent='Flow updated: '+new Date(parsed.generatedAt).toLocaleString()+' · '+parsed.from+' through '+parsed.through+' · '+parsed.rows.length+' event(s).';
+  _olFeedStatus11('Saving recognized whole-day absences…');
+  var result;
+  try{result=await _olFeedSave11(automatic);}catch(error){
+    _olFeedState11.rows=parsed.rows.map(function(r){return Object.assign({},r,{review:true,reasons:r.reasons.concat('Automatic save was not confirmed. You can review and retry this event.')});});_olFeedPreview11();throw error;
+  }
+  _olFeedPreview11();_olFeedStatus11('Sync complete: '+result.added+' new absence day(s) added from '+automatic.length+' recognized event(s). '+result.status+(review.length?' '+review.length+' event(s) require review below.':'')+(parsed.ignored?' '+parsed.ignored+' out-of-range event(s) were ignored.':''));
+}
+function _olFeedReadTimeout11(promise){return new Promise(function(resolve,reject){var timer=setTimeout(function(){reject(Error('The flow result could not be read yet. Check the database connection or import the saved flow result.'));},15000);promise.then(function(v){clearTimeout(timer);resolve(v);},function(e){clearTimeout(timer);reject(e);});});}
+async function _olFeedLoad11(){
+  if(_olFeedState11.busy||!_olCanImport())return;
+  _olFeedBusy11(true);try{
+    _olFeedStatus11('Reading the latest Power Automate update…');
+    if(!FIREBASE_READY||!firebaseDB)throw Error('The shared database is not connected. You can import the saved Website sync payload result below.');
+    var snapshot=await _olFeedReadTimeout11(firebaseDB.ref(OUTLOOK_FEED_PATH11).once('value')),payload=snapshot.val();
+    if(!payload)throw Error('The flow has not published an update yet. Finish its HTTP action, then select Read latest update.');
+    await _olFeedConsume11(payload);
+  }catch(error){_olFeedStatus11('Sync did not finish: '+error.message);}finally{_olFeedBusy11(false);}
+}
+function syncVacationsFromOutlook(){
+  if(!_olCanImport()){alert('Sign in as manager to sync team absences.');return;}
+  var existing=document.getElementById('ol-feed-dialog11');if(existing){existing.querySelector('button').focus();return;}
+  _olFeedState11={busy:false,payload:null,rows:[]};
+  var dialog=document.createElement('div');dialog.id='ol-feed-dialog11';dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Sync absences from Outlook');
+  dialog.style.cssText='position:fixed;inset:0;z-index:10001;background:#000b;display:flex;align-items:center;justify-content:center;padding:18px';
+  dialog.innerHTML='<style>#ol-feed-dialog11 button{padding:8px 13px;margin:4px;border:1px solid #638d24;border-radius:5px;background:#263111;color:#e8f4d9;cursor:pointer}#ol-feed-dialog11 button:disabled{opacity:.55;cursor:wait}#ol-feed-dialog11 td,#ol-feed-dialog11 th{padding:8px;border-bottom:1px solid #3c3c3c;vertical-align:top}</style><div style="width:960px;max-width:100%;max-height:88vh;overflow:auto;background:#171717;color:#eee;border:1px solid #465726;border-radius:10px;padding:22px;font-size:14px;line-height:1.6"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><h2 style="margin:0">Sync absences from Outlook</h2><button id="ol-feed-close11" aria-label="Close">✕</button></div><p>Reads the latest result from your Outlook flow. Recognized whole-day absences are added automatically; part-day events and overlapping categories need your review.</p><p id="ol-feed-meta11" style="color:#b4d594"></p><p id="ol-feed-status11" role="status" style="white-space:pre-wrap"></p><button id="ol-feed-retry11">Read latest update</button><div id="ol-feed-preview11"></div><p style="color:#c1c1c1">Existing days are preserved. This adds missing days; changed or canceled Outlook events need manual review. Vacation / OOO also includes sick leave.</p><details style="margin-top:15px"><summary>Other connection options</summary><p>If the flow result has not been published, save its <strong>Website sync payload</strong> output as a JSON file and import it here.</p><input id="ol-feed-file11" type="file" accept=".json,application/json"><p><button id="ol-feed-direct11">Direct Microsoft connection settings</button></p></details></div>';
+  document.body.appendChild(dialog);
+  document.getElementById('ol-feed-close11').onclick=function(){if(!_olFeedState11.busy)dialog.remove();};
+  document.getElementById('ol-feed-retry11').onclick=_olFeedLoad11;
+  document.getElementById('ol-feed-direct11').onclick=function(){if(!_olFeedState11.busy){dialog.remove();_olDirectSync2();}};
+  document.getElementById('ol-feed-file11').onchange=async function(){var file=this.files[0];this.value='';if(!file||_olFeedState11.busy)return;_olFeedBusy11(true);try{if(file.size>5*1024*1024)throw Error('Choose a flow-result JSON smaller than 5 MB.');await _olFeedConsume11(await file.text());}catch(error){_olFeedStatus11('The flow result could not be imported: '+error.message);}finally{_olFeedBusy11(false);}};
+  _olFeedLoad11();
 }
 
 
