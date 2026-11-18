@@ -373,7 +373,7 @@ select option{background:#1a1a1a!important;color:#f0f0f0!important}
 
 
 <header>
-  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 17.11.26b</span></h1>
+  <h1>🔬 Lab Practical Engineers — Focal · Training · Vacations · Updates <span id="app-rev" style="font-size:10px;color:#76b900;opacity:.7" title="Website build revision">Rev 18.11.26a</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="live-clock" style="font-size:12px;color:var(--txs);font-variant-numeric:tabular-nums"></span>
     <span id="save-indicator" class="si">✓ Saved</span>
@@ -509,7 +509,7 @@ function _startClock(){
   tick();
   setInterval(tick,1000);
 }
-var BUILD_TS='17.11.26b';
+var BUILD_TS='18.11.26a';
 function _setRev(){
   var el=document.getElementById('app-rev');
   if(el)el.textContent='Rev '+BUILD_TS;
@@ -1250,6 +1250,35 @@ function importOpenARsFromCSV(){
 // ══════════════════════════════════════════════════════
 // SESSIONS
 // ══════════════════════════════════════════════════════
+
+// Session materials are links; document access remains with the file provider.
+function _sessionAttr12(value){return esc(value).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function _sessionUrl12(value){
+  value=String(value||'').trim();if(!value)return '';
+  try{var url=new URL(value);return /^(https?:)$/.test(url.protocol)&&!url.username&&!url.password?url.href:'';}catch(e){return '';}
+}
+function _sessionMaterialFields12(prefix,s){
+  s=s||{};return [['presentationLink','Presentation link (PowerPoint / PDF)','Paste a SharePoint or OneDrive sharing link'],['recordingLink','Recording link (optional)','https://…']].map(function(field){
+    return '<label style="display:block;font-size:12px;color:var(--txs);margin-bottom:10px">'+field[1]+'<input id="'+prefix+'-'+field[0]+'" type="url" value="'+_sessionAttr12(s[field[0]]||'')+'" placeholder="'+field[2]+'" style="display:block;width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:8px;color:var(--tx);font-size:13px;margin-top:4px"></label>';
+  }).join('')+'<p style="font-size:12px;color:var(--txs);margin:0 0 12px">Keep files in SharePoint or OneDrive and give attendees access. Paste their sharing links here.</p>';
+}
+function _sessionReadLinks12(prefix){
+  var result={},bad=false;
+  [['link','link'],['presentationLink','presentationLink'],['recordingLink','recordingLink']].forEach(function(field){
+    var el=document.getElementById(prefix+'-'+field[0]),value=el?el.value.trim():'';
+    if(value&&!_sessionUrl12(value)){bad=true;if(el){el.focus();el.setAttribute('aria-invalid','true');}}
+    result[field[1]]=value;
+  });
+  if(bad){alert('Use a full https:// or http:// sharing link for the meeting, presentation or recording.');return null;}
+  return result;
+}
+function _sessionResourceLinks12(s){
+  return [['link','Meeting / link'],['presentationLink','Presentation'],['recordingLink','Recording']].map(function(field){
+    var href=_sessionUrl12(s[field[0]]);if(!href)return '';
+    return '<a href="'+_sessionAttr12(href)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;border:1px solid var(--ace);border-radius:4px;padding:5px 9px;color:var(--ac);text-decoration:none;font-size:12px;font-weight:700">'+field[1]+'</a>';
+  }).filter(Boolean).join('')||'<span style="color:var(--txm)">—</span>';
+}
+
 function buildSessionsPanel(){
   if(!appState.sessions)appState.sessions=[];
   if(!appState.machTraining||!Array.isArray(appState.machTraining)||!appState.machTraining.length){
@@ -1272,7 +1301,8 @@ function buildSessionsPanel(){
     h+='<select id="sess-time" style="background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px"><option value="">Duration...</option><option>0.5 hr</option><option>1 hr</option><option>1.5 hr</option><option>2 hr</option><option>2.5 hr</option><option>3 hr</option><option>4 hr</option><option>Half day</option><option>Full day</option></select>';
     h+='</div>';
     h+='<textarea id="sess-agenda" placeholder="Agenda / Description" rows="2" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px;resize:vertical;margin-bottom:10px"></textarea>';
-    h+='<input id="sess-link" placeholder="Recording / Meeting link (optional) — https://…" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px;margin-bottom:10px">';
+    h+='<input id="sess-link" placeholder="Meeting / existing link (optional) — https://…" aria-label="Meeting or existing session link" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--ace);border-radius:4px;padding:7px 10px;color:var(--tx);font-size:13px;margin-bottom:10px">';
+    h+=_sessionMaterialFields12('sess');
     h+='<div style="margin-bottom:10px"><label style="color:var(--txs);font-size:12px;display:block;margin-bottom:6px">Attendees:</label>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
     ALL_PEOPLE.forEach(function(name){
@@ -1292,7 +1322,7 @@ function buildSessionsPanel(){
     h+='<thead><tr style="background:var(--s1);color:var(--ac)">';
     h+='<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--ace)">Title / Subject</th>';
     h+='<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--ace)">Presenter</th>';
-    h+='<th style="padding:10px 8px;text-align:center;border-bottom:2px solid var(--ace)">🔗 Link</th>';
+    h+='<th style="padding:10px 8px;text-align:center;border-bottom:2px solid var(--ace)">Meeting &amp; materials</th>';
     h+='<th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--ace)">Date</th>';
     h+='<th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--ace)">Duration</th>';
     h+='<th style="padding:10px 12px;text-align:left;border-bottom:2px solid var(--ace)">Agenda</th>';
@@ -1308,13 +1338,7 @@ function buildSessionsPanel(){
       h+='<tr style="background:'+bg+';border-bottom:1px solid var(--ace)">';
       h+='<td style="padding:10px 12px;font-weight:600;color:'+(done?'var(--ac)':'var(--tx)')+'">'+esc(s.title||'')+'</td>';
       h+='<td style="padding:10px 12px;color:var(--ac)">'+esc(s.presenter||'')+'</td>';
-      h+='<td style="padding:10px 8px;text-align:center">';
-      if(s.link){
-        h+='<a href="'+esc(s.link)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;background:var(--acb);border:1px solid var(--ace);border-radius:4px;padding:4px 10px;color:var(--ac);text-decoration:none;font-size:12px;font-weight:700">▶ Open</a>';
-      } else {
-        h+='<span style="color:#333;font-size:11px">—</span>';
-      }
-      h+='</td>';
+      h+='<td style="padding:10px 8px;min-width:150px"><div style="display:flex;flex-wrap:wrap;gap:6px">'+_sessionResourceLinks12(s)+'</div></td>';
       h+='<td style="padding:10px 8px;white-space:nowrap;color:var(--txs)">'+esc(s.date||'')+'</td>';
       h+='<td style="padding:10px 8px;white-space:nowrap;color:var(--txs)">'+esc(s.time||'')+'</td>';
       h+='<td style="padding:10px 12px;color:var(--txs);max-width:220px">'+esc(s.agenda||'')+'</td>';
@@ -1342,6 +1366,8 @@ function buildSessionsPanel(){
 }
 
 function addSession(){
+  if(!currentUser||currentUser.role!=='manager')return;
+  var links=_sessionReadLinks12('sess');if(!links)return;
   var title=document.getElementById('sess-title').value.trim();
   if(!title){alert('Please enter a title.');return;}
   var atts=[];
@@ -1353,7 +1379,9 @@ function addSession(){
     date:document.getElementById('sess-date').value,
     time:document.getElementById('sess-time').value,
     agenda:document.getElementById('sess-agenda').value.trim(),
-    link:document.getElementById('sess-link')?document.getElementById('sess-link').value.trim():'',
+    link:links.link,
+    presentationLink:links.presentationLink,
+    recordingLink:links.recordingLink,
     attendees:atts,
     completed:false,
     createdAt:new Date().toISOString()
@@ -1364,13 +1392,14 @@ function addSession(){
   saveState();
   buildSessionsPanel();
   // Clear form
-  ['sess-title','sess-presenter','sess-agenda','sess-link'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['sess-title','sess-presenter','sess-agenda','sess-link','sess-presentationLink','sess-recordingLink'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('sess-date').value='';
   document.getElementById('sess-time').value='';
   document.querySelectorAll('.sess-att').forEach(function(cb){cb.checked=false;});
 }
 
 function editSession(id){
+  if(!currentUser||currentUser.role!=='manager')return;
   if(!Array.isArray(appState.sessions))appState.sessions=Object.values(appState.sessions||[]);
   var s=appState.sessions.find(function(x){return x.id===id;});
   if(!s)return;
@@ -1400,7 +1429,8 @@ function editSession(id){
     +'</div>'
     +'<select id="se-time" style="width:100%;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;margin-bottom:8px"><option value="">Duration...</option>'+durOpts+'</select>'
     +'<textarea id="se-agenda" placeholder="Agenda" rows="2" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;resize:vertical;margin-bottom:8px">'+esc(s.agenda||'')+'</textarea>'
-    +'<input id="se-link" value="'+esc(s.link||'')+'" placeholder="Recording / Meeting link (https://…)" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;margin-bottom:8px">'
+    +'<input id="se-link" value="'+_sessionAttr12(s.link||'')+'" placeholder="Meeting / existing link (https://…)" aria-label="Meeting or existing session link" style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:4px;padding:8px;color:#f0f0f0;font-size:13px;margin-bottom:8px">'
+    +_sessionMaterialFields12('se',s)
     +'<div style="margin-bottom:14px"><div style="font-size:11px;color:#888;margin-bottom:6px">Attendees:</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+attChecks+'</div></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end">'
     +'<button onclick="document.getElementById(\'sess-edit-overlay\').remove()" style="background:none;border:1px solid #555;border-radius:4px;padding:8px 16px;color:#aaa;cursor:pointer">Cancel</button>'
@@ -1413,6 +1443,9 @@ function editSession(id){
 }
 
 function saveSessionEdit(id){
+  if(!currentUser||currentUser.role!=='manager')return;
+  var links=_sessionReadLinks12('se');if(!links)return;
+  if(!document.getElementById('se-title').value.trim()){alert('Please enter a title.');return;}
   if(!Array.isArray(appState.sessions))appState.sessions=Object.values(appState.sessions||[]);
   var s=appState.sessions.find(function(x){return x.id===id;});
   if(!s)return;
@@ -1423,8 +1456,9 @@ function saveSessionEdit(id){
   s.date=document.getElementById('se-date').value;
   s.time=document.getElementById('se-time').value;
   s.agenda=document.getElementById('se-agenda').value.trim();
-  var linkEl=document.getElementById('se-link');
-  if(linkEl)s.link=linkEl.value.trim();
+  s.link=links.link;
+  s.presentationLink=links.presentationLink;
+  s.recordingLink=links.recordingLink;
   s.attendees=atts;
   saveState();
   document.getElementById('sess-edit-overlay').remove();
@@ -2344,12 +2378,12 @@ function _buildXlsx(snapshot,collectOnly10){
   // ── Sessions ──────────────────────────────────────────────
   try{(function(){
     var sessions=Array.isArray(appState.sessions)?appState.sessions:Object.values(appState.sessions||{});
-    var CW2=[40,20,14,10,40,30,10,65,28];
+    var CW2=[40,20,14,10,40,30,10,65,28,65,65];
     var rows=[];
-    rows.push(titleRow('Lab Sessions — '+xts(),9));
-    rows.push(hRow(['Title','Presenter','Date','Duration','Agenda','Attendees','Done','Link','Session ID']));
+    rows.push(titleRow('Lab Sessions — '+xts(),11));
+    rows.push(hRow(['Title','Presenter','Date','Duration','Agenda','Attendees','Done','Link','Session ID','Presentation Link','Recording Link']));
     sessions.forEach(function(s){
-      rows.push(sRow2([s.title||'',s.presenter||'',s.date||'',s.time||'',s.agenda||'',_exportValues8(s.attendees).join(', '),(s.done||s.completed)?'Yes':'',s.link||'',s.id||'']));
+      rows.push(sRow2([s.title||'',s.presenter||'',s.date||'',s.time||'',s.agenda||'',_exportValues8(s.attendees).join(', '),(s.done||s.completed)?'Yes':'',s.link||'',s.id||'',s.presentationLink||'',s.recordingLink||'']));
     });
     sNames.push('Sessions');sXmls.push(shXml(rows,CW2));
   })();}catch(e){console.error('Sessions sheet:',e);}
@@ -2512,7 +2546,7 @@ function _buildXlsx(snapshot,collectOnly10){
   var guide8=[
     {Section:'Created',Details:backup.exportedAt+' — '+backup.revision},
     {Section:'All years',Details:'Each engineer has separate sheets for each saved year. The unnumbered name sheet is 2026. Amir is 2026 training; Amir 2027 and other years contain annual goals.'},
-    {Section:'Sessions',Details:'The Link column contains the original session URL. Session Details retains every saved field.'},
+    {Section:'Sessions',Details:'Link retains the existing meeting/session URL. Presentation Link and Recording Link are separate sharing URLs. Session Details retains every saved field.'},
     {Section:'Complete backup',Details:'Full Data Backup contains a complete JSON snapshot of appState and runtime task/review definitions, split across numbered cells. Keep these cells unchanged.'},
     {Section:'Readable records',Details:'Reviews, Year Comments, X-Sections, Machine Details, Training Plans, My Tasks Details, Session Details, Task Definitions and Pending Changes expose additional data.'},
     {Section:'Other saved fields',Details:'All Saved Fields lists every stored appState value and its path, including timestamps, deleted IDs, metadata, and future fields.'},
@@ -2692,6 +2726,8 @@ function _applyExcelSheets(sheets,state){
                     if(!row[0]||row[0]==='Title'||row[0].indexOf('Lab Sessions')>=0||!row[0].trim())return;
                     newSessions.push({id:String(row[8]||'sess_imp_'+Date.now()+'_'+ri),title:row[0]||'',presenter:row[1]||'',date:row[2]||'',time:row[3]||'',agenda:row[4]||'',attendees:(row[5]||'').split(',').map(function(x){return x.trim();}).filter(Boolean),done:(row[6]||'').trim()==='Yes'});
                     if(row[7]!==undefined)newSessions[newSessions.length-1].link=String(row[7]||'');
+                    if(row[9]!==undefined)newSessions[newSessions.length-1].presentationLink=String(row[9]||'');
+                    if(row[10]!==undefined)newSessions[newSessions.length-1].recordingLink=String(row[10]||'');
                     imported++;
                   });
                   if(newSessions.length>0)state.sessions=carry(state.sessions,newSessions,'title');
